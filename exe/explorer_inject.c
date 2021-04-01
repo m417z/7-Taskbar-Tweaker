@@ -7,7 +7,11 @@
 #include "functions.h"
 #include "resource.h"
 
+#define RSRC_STRING_W_PARAM(string_id, extra_param) ((DWORD)(((DWORD)(((DWORD_PTR)(string_id)) & 0x000FFFFF)) | ((DWORD)((DWORD)(((DWORD_PTR)(extra_param)) & 0x00000FFF))) << 4*5))
+
 static volatile BOOL bInjected = FALSE;
+static HWND g_hTweakerWnd;
+static UINT g_uEjectedMsg;
 static HWND hTaskbarWnd;
 static HANDLE hExplorerProcess;
 static HANDLE hCleanEvent;
@@ -20,7 +24,7 @@ static DWORD WINAPI WaitThread(LPVOID lpParameter);
 static BOOL MyReadProcessMemory(HANDLE hProcess, LPCVOID lpBaseAddress, LPVOID lpBuffer, SIZE_T nSize);
 static BOOL MyWriteProcessMemory(HANDLE hProcess, LPVOID lpBaseAddress, LPVOID lpBuffer, SIZE_T nSize);
 
-UINT ExplorerInject(HWND hTweakerWnd, LANGID langid, int pOptions[OPTS_COUNT], WCHAR *pIniFile)
+UINT ExplorerInject(HWND hTweakerWnd, UINT uEjectedMsg, LANGID langid, int pOptions[OPTS_COUNT], WCHAR *pIniFile)
 {
 	WCHAR szDllPath[MAX_PATH];
 	HANDLE hExplorerIsShellMutex;
@@ -30,6 +34,9 @@ UINT ExplorerInject(HWND hTweakerWnd, LANGID langid, int pOptions[OPTS_COUNT], W
 	DWORD dwError;
 	UINT uError;
 	int i;
+
+	g_hTweakerWnd = hTweakerWnd;
+	g_uEjectedMsg = uEjectedMsg;
 
 	// Get DLL path
 	i = GetModuleFileName(NULL, szDllPath, MAX_PATH);
@@ -123,7 +130,7 @@ UINT ExplorerInject(HWND hTweakerWnd, LANGID langid, int pOptions[OPTS_COUNT], W
 	return uError;
 }
 
-static DWORD LoadLibraryInExplorer(HANDLE hProcess, WCHAR *pDllName, 
+static DWORD LoadLibraryInExplorer(HANDLE hProcess, WCHAR *pDllName,
 	INJECT_INIT_STRUCT *p_inject_init_struct, HANDLE *phWaitThread)
 {
 	void *pCode = LoadLibraryRemoteProc;
@@ -174,7 +181,7 @@ static DWORD LoadLibraryInExplorer(HANDLE hProcess, WCHAR *pDllName,
 			if(MyWriteProcessMemory(hProcess, pRemoteData, &remote_data, cbDataSize))
 			{
 				// Create the remote thread!!!
-				hRemoteThread = CreateRemoteThread(hProcess, NULL, 0, 
+				hRemoteThread = CreateRemoteThread(hProcess, NULL, 0,
 					(LPTHREAD_START_ROUTINE)pRemoteCode, pRemoteData, 0, NULL);
 				if(hRemoteThread)
 				{
@@ -231,6 +238,7 @@ static DWORD WINAPI WaitThread(LPVOID lpParameter)
 		CloseHandle(hThread);
 
 	bInjected = FALSE;
+	PostMessage(g_hTweakerWnd, g_uEjectedMsg, 0, 0);
 	return 0;
 }
 
@@ -238,7 +246,7 @@ static BOOL MyReadProcessMemory(HANDLE hProcess, LPCVOID lpBaseAddress, LPVOID l
 {
 	SIZE_T nNumberOfBytesRead;
 
-	return ReadProcessMemory(hProcess, lpBaseAddress, lpBuffer, nSize, &nNumberOfBytesRead) && 
+	return ReadProcessMemory(hProcess, lpBaseAddress, lpBuffer, nSize, &nNumberOfBytesRead) &&
 		nNumberOfBytesRead == nSize;
 }
 
@@ -246,7 +254,7 @@ static BOOL MyWriteProcessMemory(HANDLE hProcess, LPVOID lpBaseAddress, LPVOID l
 {
 	SIZE_T nNumberOfBytesWritten;
 
-	return WriteProcessMemory(hProcess, lpBaseAddress, lpBuffer, nSize, &nNumberOfBytesWritten) && 
+	return WriteProcessMemory(hProcess, lpBaseAddress, lpBuffer, nSize, &nNumberOfBytesWritten) &&
 		nNumberOfBytesWritten == nSize;
 }
 

@@ -8,155 +8,83 @@ extern WORD nExplorerBuild, nExplorerQFE;
 #define WIN_VERSION_8              1
 #define WIN_VERSION_81             2
 #define WIN_VERSION_811            3
-#define WIN_VERSION_10_T1          4
-#define WIN_VERSION_10_T2          5
-#define WIN_VERSION_10_R1          6
-#define WIN_VERSION_10_R2          7
-#define WIN_VERSION_10_R3          8
-#define WIN_VERSION_10_R4          9
-#define WIN_VERSION_10_R5          10
-#define WIN_VERSION_10_19H1        11
+#define WIN_VERSION_10_T1          4  // 1507 (Initial Release)
+#define WIN_VERSION_10_T2          5  // 1511 (November Update)
+#define WIN_VERSION_10_R1          6  // 1607 (Anniversary Update)
+#define WIN_VERSION_10_R2          7  // 1703 (Creators Update)
+#define WIN_VERSION_10_R3          8  // 1709 (Fall Creators Update)
+#define WIN_VERSION_10_R4          9  // 1803 (April 2018 Update)
+#define WIN_VERSION_10_R5          10 // 1809 (October 2018 Update)
+#define WIN_VERSION_10_19H1        11 // 1903 (May 2019 Update) and 1909 (November 2019 Update)
+#define WIN_VERSION_10_20H1        12 // 2004 (Summer 2020 Update) and 20H2 (October 2020 Update)
+//#define WIN_VERSION_10_NEXT        13
 
 // helper macros
 #define FIRST_NONEMPTY_ARG_2(a, b) \
                                    ( (sizeof(#a) > sizeof("")) ? (a+0) : (b) )
 #define FIRST_NONEMPTY_ARG_3(a, b, c) \
-                                   ( (sizeof(#a) > sizeof("")) ? (a+0) : \
-                                   ( (sizeof(#b) > sizeof("")) ? (b+0) : (c) ))
+                                   FIRST_NONEMPTY_ARG_2(a, FIRST_NONEMPTY_ARG_2(b, c))
 #define FIRST_NONEMPTY_ARG_4(a, b, c, d) \
-                                   ( (sizeof(#a) > sizeof("")) ? (a+0) : \
-                                   ( (sizeof(#b) > sizeof("")) ? (b+0) : \
-                                   ( (sizeof(#c) > sizeof("")) ? (c+0) : (d) )))
+                                   FIRST_NONEMPTY_ARG_2(a, FIRST_NONEMPTY_ARG_3(b, c, d))
 #define FIRST_NONEMPTY_ARG_5(a, b, c, d, e) \
-                                   ( (sizeof(#a) > sizeof("")) ? (a+0) : \
-                                   ( (sizeof(#b) > sizeof("")) ? (b+0) : \
-                                   ( (sizeof(#c) > sizeof("")) ? (c+0) : \
-                                   ( (sizeof(#d) > sizeof("")) ? (d+0) : (e) ))))
+                                   FIRST_NONEMPTY_ARG_2(a, FIRST_NONEMPTY_ARG_4(b, c, d, e))
 #define FIRST_NONEMPTY_ARG_6(a, b, c, d, e, f) \
-                                   ( (sizeof(#a) > sizeof("")) ? (a+0) : \
-                                   ( (sizeof(#b) > sizeof("")) ? (b+0) : \
-                                   ( (sizeof(#c) > sizeof("")) ? (c+0) : \
-                                   ( (sizeof(#d) > sizeof("")) ? (d+0) : \
-                                   ( (sizeof(#e) > sizeof("")) ? (e+0) : (f) )))))
+                                   FIRST_NONEMPTY_ARG_2(a, FIRST_NONEMPTY_ARG_5(b, c, d, e, f))
 #define FIRST_NONEMPTY_ARG_7(a, b, c, d, e, f, g) \
-                                   ( (sizeof(#a) > sizeof("")) ? (a+0) : \
-                                   ( (sizeof(#b) > sizeof("")) ? (b+0) : \
-                                   ( (sizeof(#c) > sizeof("")) ? (c+0) : \
-                                   ( (sizeof(#d) > sizeof("")) ? (d+0) : \
-                                   ( (sizeof(#e) > sizeof("")) ? (e+0) : \
-                                   ( (sizeof(#f) > sizeof("")) ? (f+0) : (g) ))))))
+                                   FIRST_NONEMPTY_ARG_2(a, FIRST_NONEMPTY_ARG_6(b, c, d, e, f, g))
 #define FIRST_NONEMPTY_ARG_8(a, b, c, d, e, f, g, h) \
-                                   ( (sizeof(#a) > sizeof("")) ? (a+0) : \
-                                   ( (sizeof(#b) > sizeof("")) ? (b+0) : \
-                                   ( (sizeof(#c) > sizeof("")) ? (c+0) : \
-                                   ( (sizeof(#d) > sizeof("")) ? (d+0) : \
-                                   ( (sizeof(#e) > sizeof("")) ? (e+0) : \
-                                   ( (sizeof(#f) > sizeof("")) ? (f+0) : \
-                                   ( (sizeof(#g) > sizeof("")) ? (g+0) : (h) )))))))
+                                   FIRST_NONEMPTY_ARG_2(a, FIRST_NONEMPTY_ARG_7(b, c, d, e, f, g, h))
 #define FIRST_NONEMPTY_ARG_9(a, b, c, d, e, f, g, h, i) \
-                                   ( (sizeof(#a) > sizeof("")) ? (a+0) : \
-                                   ( (sizeof(#b) > sizeof("")) ? (b+0) : \
-                                   ( (sizeof(#c) > sizeof("")) ? (c+0) : \
-                                   ( (sizeof(#d) > sizeof("")) ? (d+0) : \
-                                   ( (sizeof(#e) > sizeof("")) ? (e+0) : \
-                                   ( (sizeof(#f) > sizeof("")) ? (f+0) : \
-                                   ( (sizeof(#g) > sizeof("")) ? (g+0) : \
-                                   ( (sizeof(#h) > sizeof("")) ? (h+0) : (i) ))))))))
+                                   FIRST_NONEMPTY_ARG_2(a, FIRST_NONEMPTY_ARG_8(b, c, d, e, f, g, h, i))
 #define FIRST_NONEMPTY_ARG_10(a, b, c, d, e, f, g, h, i, j) \
-                                   ( (sizeof(#a) > sizeof("")) ? (a+0) : \
-                                   ( (sizeof(#b) > sizeof("")) ? (b+0) : \
-                                   ( (sizeof(#c) > sizeof("")) ? (c+0) : \
-                                   ( (sizeof(#d) > sizeof("")) ? (d+0) : \
-                                   ( (sizeof(#e) > sizeof("")) ? (e+0) : \
-                                   ( (sizeof(#f) > sizeof("")) ? (f+0) : \
-                                   ( (sizeof(#g) > sizeof("")) ? (g+0) : \
-                                   ( (sizeof(#h) > sizeof("")) ? (h+0) : \
-                                   ( (sizeof(#i) > sizeof("")) ? (i+0) : (j) )))))))))
+                                   FIRST_NONEMPTY_ARG_2(a, FIRST_NONEMPTY_ARG_9(b, c, d, e, f, g, h, i, j))
 #define FIRST_NONEMPTY_ARG_11(a, b, c, d, e, f, g, h, i, j, k) \
-                                   ( (sizeof(#a) > sizeof("")) ? (a+0) : \
-                                   ( (sizeof(#b) > sizeof("")) ? (b+0) : \
-                                   ( (sizeof(#c) > sizeof("")) ? (c+0) : \
-                                   ( (sizeof(#d) > sizeof("")) ? (d+0) : \
-                                   ( (sizeof(#e) > sizeof("")) ? (e+0) : \
-                                   ( (sizeof(#f) > sizeof("")) ? (f+0) : \
-                                   ( (sizeof(#g) > sizeof("")) ? (g+0) : \
-                                   ( (sizeof(#h) > sizeof("")) ? (h+0) : \
-                                   ( (sizeof(#i) > sizeof("")) ? (i+0) : \
-                                   ( (sizeof(#j) > sizeof("")) ? (j+0) : (k) ))))))))))
+                                   FIRST_NONEMPTY_ARG_2(a, FIRST_NONEMPTY_ARG_10(b, c, d, e, f, g,  h, i, j, k))
+#define FIRST_NONEMPTY_ARG_12(a, b, c, d, e, f, g, h, i, j, k, l) \
+                                   FIRST_NONEMPTY_ARG_2(a, FIRST_NONEMPTY_ARG_11(b, c, d, e, f, g, h, i, j, k, l))
+#define FIRST_NONEMPTY_ARG_13(a, b, c, d, e, f, g, h, i, j, k, l, m) \
+                                   FIRST_NONEMPTY_ARG_2(a, FIRST_NONEMPTY_ARG_12(b, c, d, e, f, g, h, i, j, k, l, m))
+#define FIRST_NONEMPTY_ARG_14(a, b, c, d, e, f, g, h, i, j, k, l, m, n) \
+                                   FIRST_NONEMPTY_ARG_2(a, FIRST_NONEMPTY_ARG_13(b, c, d, e, f, g, h, i, j, k, l, m, n))
 
-#define DO2(d7, dx)                ( (nWinVersion == WIN_VERSION_7) ? (d7) : (dx) )
-#define DO3(d7, d8, dx)            ( (nWinVersion == WIN_VERSION_7) ? (d7) : \
-                                   ( (nWinVersion == WIN_VERSION_8) ? FIRST_NONEMPTY_ARG_2(d8, d7) : (dx) ))
-#define DO4(d7, d8, d81, dx)       ( (nWinVersion == WIN_VERSION_7) ? (d7) : \
-                                   ( (nWinVersion == WIN_VERSION_8) ? FIRST_NONEMPTY_ARG_2(d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_81) ? FIRST_NONEMPTY_ARG_3(d81, d8, d7) : (dx) )))
-#define DO5(d7, d8, d81, d811, dx) ( (nWinVersion == WIN_VERSION_7) ? (d7) : \
-                                   ( (nWinVersion == WIN_VERSION_8) ? FIRST_NONEMPTY_ARG_2(d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_81) ? FIRST_NONEMPTY_ARG_3(d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_811) ? FIRST_NONEMPTY_ARG_4(d811, d81, d8, d7) : (dx) ))))
+#define DO2(d7, dx)                ( (nWinVersion > WIN_VERSION_7) ? FIRST_NONEMPTY_ARG_2(dx, d7) : (d7) )
+#define DO3(d7, d8, dx)            ( (nWinVersion > WIN_VERSION_8) ? FIRST_NONEMPTY_ARG_3(dx, d8, d7) : DO2(d7, d8) )
+#define DO4(d7, d8, d81, dx)       ( (nWinVersion > WIN_VERSION_81) ? FIRST_NONEMPTY_ARG_4(dx, d81, d8, d7) : DO3(d7, d8, d81) )
+#define DO5(d7, d8, d81, d811, dx) ( (nWinVersion > WIN_VERSION_811) ? FIRST_NONEMPTY_ARG_5(dx, d811, d81, d8, d7) : DO4(d7, d8, d81, d811) )
 #define DO6(d7, d8, d81, d811, d10_t1, dx) \
-                                   ( (nWinVersion == WIN_VERSION_7) ? (d7) : \
-                                   ( (nWinVersion == WIN_VERSION_8) ? FIRST_NONEMPTY_ARG_2(d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_81) ? FIRST_NONEMPTY_ARG_3(d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_811) ? FIRST_NONEMPTY_ARG_4(d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_T1) ? FIRST_NONEMPTY_ARG_5(d10_t1, d811, d81, d8, d7) : (dx) )))))
+                                   ( (nWinVersion > WIN_VERSION_10_T1) ? \
+                                     FIRST_NONEMPTY_ARG_6(dx, d10_t1, d811, d81, d8, d7) : \
+                                     DO5(d7, d8, d81, d811, d10_t1) )
 #define DO7(d7, d8, d81, d811, d10_t1, d10_t2, dx) \
-                                   ( (nWinVersion == WIN_VERSION_7) ? (d7) : \
-                                   ( (nWinVersion == WIN_VERSION_8) ? FIRST_NONEMPTY_ARG_2(d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_81) ? FIRST_NONEMPTY_ARG_3(d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_811) ? FIRST_NONEMPTY_ARG_4(d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_T1) ? FIRST_NONEMPTY_ARG_5(d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_T2) ? FIRST_NONEMPTY_ARG_6(d10_t2, d10_t1, d811, d81, d8, d7) : (dx) ))))))
+                                   ( (nWinVersion > WIN_VERSION_10_T2) ? \
+                                     FIRST_NONEMPTY_ARG_7(dx, d10_t2, d10_t1, d811, d81, d8, d7) : \
+                                     DO6(d7, d8, d81, d811, d10_t1, d10_t2) )
 #define DO8(d7, d8, d81, d811, d10_t1, d10_t2, d10_r1, dx) \
-                                   ( (nWinVersion == WIN_VERSION_7) ? (d7) : \
-                                   ( (nWinVersion == WIN_VERSION_8) ? FIRST_NONEMPTY_ARG_2(d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_81) ? FIRST_NONEMPTY_ARG_3(d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_811) ? FIRST_NONEMPTY_ARG_4(d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_T1) ? FIRST_NONEMPTY_ARG_5(d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_T2) ? FIRST_NONEMPTY_ARG_6(d10_t2, d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_R1) ? FIRST_NONEMPTY_ARG_7(d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : (dx) )))))))
+                                   ( (nWinVersion > WIN_VERSION_10_R1) ? \
+                                     FIRST_NONEMPTY_ARG_8(dx, d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : \
+                                     DO7(d7, d8, d81, d811, d10_t1, d10_t2, d10_r1) )
 #define DO9(d7, d8, d81, d811, d10_t1, d10_t2, d10_r1, d10_r2, dx) \
-                                   ( (nWinVersion == WIN_VERSION_7) ? (d7) : \
-                                   ( (nWinVersion == WIN_VERSION_8) ? FIRST_NONEMPTY_ARG_2(d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_81) ? FIRST_NONEMPTY_ARG_3(d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_811) ? FIRST_NONEMPTY_ARG_4(d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_T1) ? FIRST_NONEMPTY_ARG_5(d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_T2) ? FIRST_NONEMPTY_ARG_6(d10_t2, d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_R1) ? FIRST_NONEMPTY_ARG_7(d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_R2) ? FIRST_NONEMPTY_ARG_8(d10_r2, d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : (dx) ))))))))
+                                   ( (nWinVersion > WIN_VERSION_10_R2) ? \
+                                     FIRST_NONEMPTY_ARG_9(dx, d10_r2, d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : \
+                                     DO8(d7, d8, d81, d811, d10_t1, d10_t2, d10_r1, d10_r2) )
 #define DO10(d7, d8, d81, d811, d10_t1, d10_t2, d10_r1, d10_r2, d10_r3, dx) \
-                                   ( (nWinVersion == WIN_VERSION_7) ? (d7) : \
-                                   ( (nWinVersion == WIN_VERSION_8) ? FIRST_NONEMPTY_ARG_2(d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_81) ? FIRST_NONEMPTY_ARG_3(d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_811) ? FIRST_NONEMPTY_ARG_4(d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_T1) ? FIRST_NONEMPTY_ARG_5(d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_T2) ? FIRST_NONEMPTY_ARG_6(d10_t2, d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_R1) ? FIRST_NONEMPTY_ARG_7(d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_R2) ? FIRST_NONEMPTY_ARG_8(d10_r2, d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_R3) ? FIRST_NONEMPTY_ARG_9(d10_r3, d10_r2, d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : (dx) )))))))))
+                                   ( (nWinVersion > WIN_VERSION_10_R3) ? \
+                                     FIRST_NONEMPTY_ARG_10(dx, d10_r3, d10_r2, d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : \
+                                     DO9(d7, d8, d81, d811, d10_t1, d10_t2, d10_r1, d10_r2, d10_r3) )
 #define DO11(d7, d8, d81, d811, d10_t1, d10_t2, d10_r1, d10_r2, d10_r3, d10_r4, dx) \
-                                   ( (nWinVersion == WIN_VERSION_7) ? (d7) : \
-                                   ( (nWinVersion == WIN_VERSION_8) ? FIRST_NONEMPTY_ARG_2(d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_81) ? FIRST_NONEMPTY_ARG_3(d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_811) ? FIRST_NONEMPTY_ARG_4(d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_T1) ? FIRST_NONEMPTY_ARG_5(d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_T2) ? FIRST_NONEMPTY_ARG_6(d10_t2, d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_R1) ? FIRST_NONEMPTY_ARG_7(d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_R2) ? FIRST_NONEMPTY_ARG_8(d10_r2, d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_R3) ? FIRST_NONEMPTY_ARG_9(d10_r3, d10_r2, d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_R4) ? FIRST_NONEMPTY_ARG_10(d10_r4, d10_r3, d10_r2, d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : (dx) ))))))))))
+                                   ( (nWinVersion > WIN_VERSION_10_R4) ? \
+                                     FIRST_NONEMPTY_ARG_11(dx, d10_r4, d10_r3, d10_r2, d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : \
+                                     DO10(d7, d8, d81, d811, d10_t1, d10_t2, d10_r1, d10_r2, d10_r3, d10_r4) )
 #define DO12(d7, d8, d81, d811, d10_t1, d10_t2, d10_r1, d10_r2, d10_r3, d10_r4, d10_r5, dx) \
-                                   ( (nWinVersion == WIN_VERSION_7) ? (d7) : \
-                                   ( (nWinVersion == WIN_VERSION_8) ? FIRST_NONEMPTY_ARG_2(d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_81) ? FIRST_NONEMPTY_ARG_3(d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_811) ? FIRST_NONEMPTY_ARG_4(d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_T1) ? FIRST_NONEMPTY_ARG_5(d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_T2) ? FIRST_NONEMPTY_ARG_6(d10_t2, d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_R1) ? FIRST_NONEMPTY_ARG_7(d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_R2) ? FIRST_NONEMPTY_ARG_8(d10_r2, d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_R3) ? FIRST_NONEMPTY_ARG_9(d10_r3, d10_r2, d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_R4) ? FIRST_NONEMPTY_ARG_10(d10_r4, d10_r3, d10_r2, d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : \
-                                   ( (nWinVersion == WIN_VERSION_10_R5) ? FIRST_NONEMPTY_ARG_11(d10_r5, d10_r4, d10_r3, d10_r2, d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : (dx) )))))))))))
+                                   ( (nWinVersion > WIN_VERSION_10_R5) ? \
+                                     FIRST_NONEMPTY_ARG_12(dx, d10_r5, d10_r4, d10_r3, d10_r2, d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : \
+                                     DO11(d7, d8, d81, d811, d10_t1, d10_t2, d10_r1, d10_r2, d10_r3, d10_r4, d10_r5) )
+#define DO13(d7, d8, d81, d811, d10_t1, d10_t2, d10_r1, d10_r2, d10_r3, d10_r4, d10_r5, d10_19h1, dx) \
+                                   ( (nWinVersion > WIN_VERSION_10_19H1) ? \
+                                     FIRST_NONEMPTY_ARG_13(dx, d10_19h1, d10_r5, d10_r4, d10_r3, d10_r2, d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : \
+                                     DO12(d7, d8, d81, d811, d10_t1, d10_t2, d10_r1, d10_r2, d10_r3, d10_r4, d10_r5, d10_19h1) )
+#define DO14(d7, d8, d81, d811, d10_t1, d10_t2, d10_r1, d10_r2, d10_r3, d10_r4, d10_r5, d10_19h1, d10_20h1, dx) \
+                                     DO13(d7, d8, d81, d811, d10_t1, d10_t2, d10_r1, d10_r2, d10_r3, d10_r4, d10_r5, d10_19h1, d10_20h1)
 
 #ifdef _WIN64
 #define DEF3264(d32, d64)          (d64)
@@ -165,37 +93,56 @@ extern WORD nExplorerBuild, nExplorerQFE;
 #endif
 
 #define DO2_3264(d7_32, d7_64, dx_32, dx_64) \
-                                   DEF3264(DO2(d7_32, dx_32), DO2(d7_64, dx_64))
+                                   DEF3264(DO2(d7_32, dx_32), \
+                                           DO2(d7_64, dx_64))
 
 #define DO3_3264(d7_32, d7_64, d8_32, d8_64, dx_32, dx_64) \
-                                   DEF3264(DO3(d7_32, d8_32, dx_32), DO3(d7_64, d8_64, dx_64))
+                                   DEF3264(DO3(d7_32, d8_32, dx_32), \
+                                           DO3(d7_64, d8_64, dx_64))
 
 #define DO4_3264(d7_32, d7_64, d8_32, d8_64, d81_32, d81_64, dx_32, dx_64) \
-                                   DEF3264(DO4(d7_32, d8_32, d81_32, dx_32), DO4(d7_64, d8_64, d81_64, dx_64))
+                                   DEF3264(DO4(d7_32, d8_32, d81_32, dx_32), \
+                                           DO4(d7_64, d8_64, d81_64, dx_64))
 
 #define DO5_3264(d7_32, d7_64, d8_32, d8_64, d81_32, d81_64, d811_32, d811_64, dx_32, dx_64) \
-                                   DEF3264(DO5(d7_32, d8_32, d81_32, d811_32, dx_32), DO5(d7_64, d8_64, d81_64, d811_64, dx_64))
+                                   DEF3264(DO5(d7_32, d8_32, d81_32, d811_32, dx_32), \
+                                           DO5(d7_64, d8_64, d81_64, d811_64, dx_64))
 
 #define DO6_3264(d7_32, d7_64, d8_32, d8_64, d81_32, d81_64, d811_32, d811_64, d10_t1_32, d10_t1_64, dx_32, dx_64) \
-                                   DEF3264(DO6(d7_32, d8_32, d81_32, d811_32, d10_t1_32, dx_32), DO6(d7_64, d8_64, d81_64, d811_64, d10_t1_64, dx_64))
+                                   DEF3264(DO6(d7_32, d8_32, d81_32, d811_32, d10_t1_32, dx_32), \
+                                           DO6(d7_64, d8_64, d81_64, d811_64, d10_t1_64, dx_64))
 
 #define DO7_3264(d7_32, d7_64, d8_32, d8_64, d81_32, d81_64, d811_32, d811_64, d10_t1_32, d10_t1_64, d10_t2_32, d10_t2_64, dx_32, dx_64) \
-                                   DEF3264(DO7(d7_32, d8_32, d81_32, d811_32, d10_t1_32, d10_t2_32, dx_32), DO7(d7_64, d8_64, d81_64, d811_64, d10_t1_64, d10_t2_64, dx_64))
+                                   DEF3264(DO7(d7_32, d8_32, d81_32, d811_32, d10_t1_32, d10_t2_32, dx_32), \
+                                           DO7(d7_64, d8_64, d81_64, d811_64, d10_t1_64, d10_t2_64, dx_64))
 
 #define DO8_3264(d7_32, d7_64, d8_32, d8_64, d81_32, d81_64, d811_32, d811_64, d10_t1_32, d10_t1_64, d10_t2_32, d10_t2_64, d10_r1_32, d10_r1_64, dx_32, dx_64) \
-                                   DEF3264(DO8(d7_32, d8_32, d81_32, d811_32, d10_t1_32, d10_t2_32, d10_r1_32, dx_32), DO8(d7_64, d8_64, d81_64, d811_64, d10_t1_64, d10_t2_64, d10_r1_64, dx_64))
+                                   DEF3264(DO8(d7_32, d8_32, d81_32, d811_32, d10_t1_32, d10_t2_32, d10_r1_32, dx_32), \
+                                           DO8(d7_64, d8_64, d81_64, d811_64, d10_t1_64, d10_t2_64, d10_r1_64, dx_64))
 
 #define DO9_3264(d7_32, d7_64, d8_32, d8_64, d81_32, d81_64, d811_32, d811_64, d10_t1_32, d10_t1_64, d10_t2_32, d10_t2_64, d10_r1_32, d10_r1_64, d10_r2_32, d10_r2_64, dx_32, dx_64) \
-                                   DEF3264(DO9(d7_32, d8_32, d81_32, d811_32, d10_t1_32, d10_t2_32, d10_r1_32, d10_r2_32, dx_32), DO9(d7_64, d8_64, d81_64, d811_64, d10_t1_64, d10_t2_64, d10_r1_64, d10_r2_64, dx_64))
+                                   DEF3264(DO9(d7_32, d8_32, d81_32, d811_32, d10_t1_32, d10_t2_32, d10_r1_32, d10_r2_32, dx_32), \
+                                           DO9(d7_64, d8_64, d81_64, d811_64, d10_t1_64, d10_t2_64, d10_r1_64, d10_r2_64, dx_64))
 
 #define DO10_3264(d7_32, d7_64, d8_32, d8_64, d81_32, d81_64, d811_32, d811_64, d10_t1_32, d10_t1_64, d10_t2_32, d10_t2_64, d10_r1_32, d10_r1_64, d10_r2_32, d10_r2_64, d10_r3_32, d10_r3_64, dx_32, dx_64) \
-                                   DEF3264(DO10(d7_32, d8_32, d81_32, d811_32, d10_t1_32, d10_t2_32, d10_r1_32, d10_r2_32, d10_r3_32, dx_32), DO10(d7_64, d8_64, d81_64, d811_64, d10_t1_64, d10_t2_64, d10_r1_64, d10_r2_64, d10_r3_64, dx_64))
+                                   DEF3264(DO10(d7_32, d8_32, d81_32, d811_32, d10_t1_32, d10_t2_32, d10_r1_32, d10_r2_32, d10_r3_32, dx_32), \
+                                           DO10(d7_64, d8_64, d81_64, d811_64, d10_t1_64, d10_t2_64, d10_r1_64, d10_r2_64, d10_r3_64, dx_64))
 
 #define DO11_3264(d7_32, d7_64, d8_32, d8_64, d81_32, d81_64, d811_32, d811_64, d10_t1_32, d10_t1_64, d10_t2_32, d10_t2_64, d10_r1_32, d10_r1_64, d10_r2_32, d10_r2_64, d10_r3_32, d10_r3_64, d10_r4_32, d10_r4_64, dx_32, dx_64) \
-                                   DEF3264(DO11(d7_32, d8_32, d81_32, d811_32, d10_t1_32, d10_t2_32, d10_r1_32, d10_r2_32, d10_r3_32, d10_r4_32, dx_32), DO11(d7_64, d8_64, d81_64, d811_64, d10_t1_64, d10_t2_64, d10_r1_64, d10_r2_64, d10_r3_64, d10_r4_64, dx_64))
+                                   DEF3264(DO11(d7_32, d8_32, d81_32, d811_32, d10_t1_32, d10_t2_32, d10_r1_32, d10_r2_32, d10_r3_32, d10_r4_32, dx_32), \
+                                           DO11(d7_64, d8_64, d81_64, d811_64, d10_t1_64, d10_t2_64, d10_r1_64, d10_r2_64, d10_r3_64, d10_r4_64, dx_64))
 
 #define DO12_3264(d7_32, d7_64, d8_32, d8_64, d81_32, d81_64, d811_32, d811_64, d10_t1_32, d10_t1_64, d10_t2_32, d10_t2_64, d10_r1_32, d10_r1_64, d10_r2_32, d10_r2_64, d10_r3_32, d10_r3_64, d10_r4_32, d10_r4_64, d10_r5_32, d10_r5_64, dx_32, dx_64) \
-                                   DEF3264(DO12(d7_32, d8_32, d81_32, d811_32, d10_t1_32, d10_t2_32, d10_r1_32, d10_r2_32, d10_r3_32, d10_r4_32, d10_r5_32, dx_32), DO12(d7_64, d8_64, d81_64, d811_64, d10_t1_64, d10_t2_64, d10_r1_64, d10_r2_64, d10_r3_64, d10_r4_64, d10_r5_64, dx_64))
+                                   DEF3264(DO12(d7_32, d8_32, d81_32, d811_32, d10_t1_32, d10_t2_32, d10_r1_32, d10_r2_32, d10_r3_32, d10_r4_32, d10_r5_32, dx_32), \
+                                           DO12(d7_64, d8_64, d81_64, d811_64, d10_t1_64, d10_t2_64, d10_r1_64, d10_r2_64, d10_r3_64, d10_r4_64, d10_r5_64, dx_64))
+
+#define DO13_3264(d7_32, d7_64, d8_32, d8_64, d81_32, d81_64, d811_32, d811_64, d10_t1_32, d10_t1_64, d10_t2_32, d10_t2_64, d10_r1_32, d10_r1_64, d10_r2_32, d10_r2_64, d10_r3_32, d10_r3_64, d10_r4_32, d10_r4_64, d10_r5_32, d10_r5_64, d10_19h1_32, d10_19h1_64, dx_32, dx_64) \
+                                   DEF3264(DO13(d7_32, d8_32, d81_32, d811_32, d10_t1_32, d10_t2_32, d10_r1_32, d10_r2_32, d10_r3_32, d10_r4_32, d10_r5_32, d10_19h1_32, dx_32), \
+                                           DO13(d7_64, d8_64, d81_64, d811_64, d10_t1_64, d10_t2_64, d10_r1_64, d10_r2_64, d10_r3_64, d10_r4_64, d10_r5_64, d10_19h1_64, dx_64))
+
+#define DO14_3264(d7_32, d7_64, d8_32, d8_64, d81_32, d81_64, d811_32, d811_64, d10_t1_32, d10_t1_64, d10_t2_32, d10_t2_64, d10_r1_32, d10_r1_64, d10_r2_32, d10_r2_64, d10_r3_32, d10_r3_64, d10_r4_32, d10_r4_64, d10_r5_32, d10_r5_64, d10_19h1_32, d10_19h1_64, d10_20h1_32, d10_20h1_64, dx_32, dx_64) \
+                                   DEF3264(DO14(d7_32, d8_32, d81_32, d811_32, d10_t1_32, d10_t2_32, d10_r1_32, d10_r2_32, d10_r3_32, d10_r4_32, d10_r5_32, d10_19h1_32, d10_20h1_32, dx_32), \
+                                           DO14(d7_64, d8_64, d81_64, d811_64, d10_t1_64, d10_t2_64, d10_r1_64, d10_r2_64, d10_r3_64, d10_r4_64, d10_r5_64, d10_19h1_64, d10_20h1_64, dx_64))
 
 #ifndef GET_X_LPARAM
 #define GET_X_LPARAM(lParam)       ((int)(short)LOWORD(lParam))
@@ -313,6 +260,7 @@ BOOL TaskbarMoveThumbInGroup(LONG_PTR lpMMThumbnailLongPtr, int index_from, int 
 BOOL TaskbarMoveTaskInGroup(LONG_PTR *task_group, LONG_PTR *task_item_from, LONG_PTR *task_item_to);
 LONG_PTR *ButtonGroupFromTaskGroup(LONG_PTR lpMMTaskListLongPtr, LONG_PTR *task_group);
 BOOL TaskbarMoveGroup(LONG_PTR lpMMTaskListLongPtr, int index_from, int index_to);
+BOOL TaskbarMoveGroupByTaskItem(LONG_PTR lpMMTaskListLongPtr, LONG_PTR* task_item, int nMoveDelta);
 LONG_PTR *TaskbarScroll(LONG_PTR lpMMTaskListLongPtr, int nRotates, BOOL bSkipMinimized, BOOL bWarpAround, LONG_PTR *src_task_item);
 LONG_PTR *TaskbarGetTrackedButton(LONG_PTR lpMMTaskListLongPtr);
 LONG_PTR *TaskbarGetTrackedTaskItem(LONG_PTR lpMMTaskListLongPtr);
@@ -337,7 +285,7 @@ HWND GetTaskItemWnd(LONG_PTR *task_item);
 HWND GetButtonWnd(LONG_PTR *button);
 void OpenThumbnailPreview(LONG_PTR lpMMTaskListLongPtr);
 void CreateNewInstance(LONG_PTR lpMMTaskListLongPtr, LONG_PTR *button_group);
-void DismissHoverUI(LONG_PTR lpMMTaskListLongPtr, BOOL bHideImmediately);
+void DismissHoverUI(LONG_PTR lpMMTaskListLongPtr, BOOL bHideWithoutAnimation);
 int GetTaskbarMinWidth(void);
 int GetTaskbarMinHeight(void);
 void DisableTaskbarTopmost(BOOL bDisable);

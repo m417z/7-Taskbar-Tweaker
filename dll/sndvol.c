@@ -39,6 +39,7 @@ extern int nOptionsEx[OPTS_EX_COUNT];
 extern HWND hTaskbarWnd;
 extern LONG_PTR lpTaskbarLongPtr;
 
+static IMMDeviceEnumerator *pDeviceEnumerator;
 static HANDLE hSndVolProcess;
 static HWND hSndVolWnd;
 static UINT_PTR nCloseSndVolTimer;
@@ -48,6 +49,26 @@ static BOOL bTooltipTimerOn;
 static HWND hSndVolModernPreviousForegroundWnd;
 static BOOL bSndVolModernLaunched;
 static BOOL bSndVolModernAppeared;
+
+const static GUID XIID_IMMDeviceEnumerator = { 0xA95664D2, 0x9614, 0x4F35, { 0xA7, 0x46, 0xDE, 0x8D, 0xB6, 0x36, 0x17, 0xE6 } };
+const static GUID XIID_MMDeviceEnumerator = { 0xBCDE0395, 0xE52F, 0x467C, { 0x8E, 0x3D, 0xC4, 0x57, 0x92, 0x91, 0x69, 0x2E } };
+const static GUID XIID_IAudioEndpointVolume = { 0x5CDF2C82, 0x841E, 0x4546, { 0x97, 0x22, 0x0C, 0xF7, 0x40, 0x78, 0x22, 0x9A } };
+
+void SndVolInit()
+{
+	HRESULT hr = CoCreateInstance(&XIID_MMDeviceEnumerator, NULL, CLSCTX_INPROC_SERVER, &XIID_IMMDeviceEnumerator, (LPVOID*)&pDeviceEnumerator);
+	if(FAILED(hr))
+		pDeviceEnumerator = NULL;
+}
+
+void SndVolUninit()
+{
+	if(pDeviceEnumerator)
+	{
+		pDeviceEnumerator->lpVtbl->Release(pDeviceEnumerator);
+		pDeviceEnumerator = NULL;
+	}
+}
 
 BOOL OpenScrollSndVol(WPARAM wParam, LPARAM lMousePosParam)
 {
@@ -60,16 +81,23 @@ BOOL OpenScrollSndVol(WPARAM wParam, LPARAM lMousePosParam)
 
 	if(nOptionsEx[OPT_EX_SNDVOL_TOOLTIP])
 	{
-		AddMasterVolumeLevelScalar((float)(GET_WHEEL_DELTA_WPARAM(wParam)*(0.02 / 120)));
+		if(!AddMasterVolumeLevelScalar((float)(GET_WHEEL_DELTA_WPARAM(wParam)*(0.02 / 120))))
+			return FALSE;
+
 		ShowSndVolTooltip();
 		return TRUE;
 	}
 	else if(CanUseModernIndicator())
 	{
-		AddMasterVolumeLevelScalar((float)(GET_WHEEL_DELTA_WPARAM(wParam)*(0.02 / 120)));
+		if(!AddMasterVolumeLevelScalar((float)(GET_WHEEL_DELTA_WPARAM(wParam)*(0.02 / 120))))
+			return FALSE;
+
 		ShowSndVolModernIndicator();
 		return TRUE;
 	}
+
+	if(!IsDefaultAudioEndpointAvailable())
+		return FALSE;
 
 	if(ValidateSndVolProcess())
 	{
@@ -554,7 +582,7 @@ static int GetSndVolTrayIconIndex(HWND *phTrayToolbarWnd)
 
 	if(GetSndVolTrayIconRect(&rcSndVolIcon))
 	{
-		hTrayNotifyWnd = *EV_TASKBAR_TRAY_NOTIFY_WND;
+		hTrayNotifyWnd = *EV_TASKBAR_TRAY_NOTIFY_WND();
 		if(hTrayNotifyWnd)
 		{
 			lpTrayNotifyLongPtr = GetWindowLongPtr(hTrayNotifyWnd, 0);
@@ -712,43 +740,49 @@ BOOL GetSndVolTrayIconRect(RECT *prc)
 	return Shell_NotifyIconGetRect(&notifyiconidentifier, prc) == S_OK;
 }
 
-const static GUID XIID_IMMDeviceEnumerator = { 0xA95664D2, 0x9614, 0x4F35, { 0xA7, 0x46, 0xDE, 0x8D, 0xB6, 0x36, 0x17, 0xE6 } };
-const static GUID XIID_MMDeviceEnumerator = { 0xBCDE0395, 0xE52F, 0x467C, { 0x8E, 0x3D, 0xC4, 0x57, 0x92, 0x91, 0x69, 0x2E } };
-const static GUID XIID_IAudioEndpointVolume = { 0x5CDF2C82, 0x841E, 0x4546, { 0x97, 0x22, 0x0C, 0xF7, 0x40, 0x78, 0x22, 0x9A } };
+BOOL IsDefaultAudioEndpointAvailable()
+{
+	IMMDevice *defaultDevice = NULL;
+	HRESULT hr;
+	BOOL bSuccess = FALSE;
+
+	if(pDeviceEnumerator)
+	{
+		hr = pDeviceEnumerator->lpVtbl->GetDefaultAudioEndpoint(pDeviceEnumerator, eRender, eConsole, &defaultDevice);
+		if(SUCCEEDED(hr))
+		{
+			bSuccess = TRUE;
+
+			defaultDevice->lpVtbl->Release(defaultDevice);
+		}
+	}
+
+	return bSuccess;
+}
 
 BOOL IsVolMuted(BOOL *pbMuted)
 {
-	IMMDeviceEnumerator *deviceEnumerator = NULL;
 	IMMDevice *defaultDevice = NULL;
 	IAudioEndpointVolume *endpointVolume = NULL;
 	HRESULT hr;
 	BOOL bSuccess = FALSE;
 
-	//hr = CoInitialize(NULL);
-	//if(SUCCEEDED(hr))
+	if(pDeviceEnumerator)
 	{
-		hr = CoCreateInstance(&XIID_MMDeviceEnumerator, NULL, CLSCTX_INPROC_SERVER, &XIID_IMMDeviceEnumerator, (LPVOID *)&deviceEnumerator);
+		hr = pDeviceEnumerator->lpVtbl->GetDefaultAudioEndpoint(pDeviceEnumerator, eRender, eConsole, &defaultDevice);
 		if(SUCCEEDED(hr))
 		{
-			hr = deviceEnumerator->lpVtbl->GetDefaultAudioEndpoint(deviceEnumerator, eRender, eConsole, &defaultDevice);
+			hr = defaultDevice->lpVtbl->Activate(defaultDevice, &XIID_IAudioEndpointVolume, CLSCTX_INPROC_SERVER, NULL, (LPVOID *)&endpointVolume);
 			if(SUCCEEDED(hr))
 			{
-				hr = defaultDevice->lpVtbl->Activate(defaultDevice, &XIID_IAudioEndpointVolume, CLSCTX_INPROC_SERVER, NULL, (LPVOID *)&endpointVolume);
-				if(SUCCEEDED(hr))
-				{
-					if(SUCCEEDED(endpointVolume->lpVtbl->GetMute(endpointVolume, pbMuted)))
-						bSuccess = TRUE;
+				if(SUCCEEDED(endpointVolume->lpVtbl->GetMute(endpointVolume, pbMuted)))
+					bSuccess = TRUE;
 
-					endpointVolume->lpVtbl->Release(endpointVolume);
-				}
-
-				defaultDevice->lpVtbl->Release(defaultDevice);
+				endpointVolume->lpVtbl->Release(endpointVolume);
 			}
 
-			deviceEnumerator->lpVtbl->Release(deviceEnumerator);
+			defaultDevice->lpVtbl->Release(defaultDevice);
 		}
-
-	//	CoUninitialize();
 	}
 
 	return bSuccess;
@@ -756,7 +790,6 @@ BOOL IsVolMuted(BOOL *pbMuted)
 
 BOOL IsVolMutedAndNotZero(BOOL *pbResult)
 {
-	IMMDeviceEnumerator *deviceEnumerator = NULL;
 	IMMDevice *defaultDevice = NULL;
 	IAudioEndpointVolume *endpointVolume = NULL;
 	HRESULT hr;
@@ -764,35 +797,26 @@ BOOL IsVolMutedAndNotZero(BOOL *pbResult)
 	BOOL bMuted;
 	BOOL bSuccess = FALSE;
 
-	//hr = CoInitialize(NULL);
-	//if(SUCCEEDED(hr))
+	if(pDeviceEnumerator)
 	{
-		hr = CoCreateInstance(&XIID_MMDeviceEnumerator, NULL, CLSCTX_INPROC_SERVER, &XIID_IMMDeviceEnumerator, (LPVOID *)&deviceEnumerator);
+		hr = pDeviceEnumerator->lpVtbl->GetDefaultAudioEndpoint(pDeviceEnumerator, eRender, eConsole, &defaultDevice);
 		if(SUCCEEDED(hr))
 		{
-			hr = deviceEnumerator->lpVtbl->GetDefaultAudioEndpoint(deviceEnumerator, eRender, eConsole, &defaultDevice);
+			hr = defaultDevice->lpVtbl->Activate(defaultDevice, &XIID_IAudioEndpointVolume, CLSCTX_INPROC_SERVER, NULL, (LPVOID *)&endpointVolume);
 			if(SUCCEEDED(hr))
 			{
-				hr = defaultDevice->lpVtbl->Activate(defaultDevice, &XIID_IAudioEndpointVolume, CLSCTX_INPROC_SERVER, NULL, (LPVOID *)&endpointVolume);
-				if(SUCCEEDED(hr))
+				if(SUCCEEDED(endpointVolume->lpVtbl->GetMasterVolumeLevelScalar(endpointVolume, &fMasterVolume)) &&
+					SUCCEEDED(endpointVolume->lpVtbl->GetMute(endpointVolume, &bMuted)))
 				{
-					if(SUCCEEDED(endpointVolume->lpVtbl->GetMasterVolumeLevelScalar(endpointVolume, &fMasterVolume)) &&
-						SUCCEEDED(endpointVolume->lpVtbl->GetMute(endpointVolume, &bMuted)))
-					{
-						*pbResult = bMuted && (fMasterVolume > 0.005);
-						bSuccess = TRUE;
-					}
-
-					endpointVolume->lpVtbl->Release(endpointVolume);
+					*pbResult = bMuted && (fMasterVolume > 0.005);
+					bSuccess = TRUE;
 				}
 
-				defaultDevice->lpVtbl->Release(defaultDevice);
+				endpointVolume->lpVtbl->Release(endpointVolume);
 			}
 
-			deviceEnumerator->lpVtbl->Release(deviceEnumerator);
+			defaultDevice->lpVtbl->Release(defaultDevice);
 		}
-
-		//	CoUninitialize();
 	}
 
 	return bSuccess;
@@ -800,41 +824,31 @@ BOOL IsVolMutedAndNotZero(BOOL *pbResult)
 
 BOOL ToggleVolMuted()
 {
-	IMMDeviceEnumerator *deviceEnumerator = NULL;
 	IMMDevice *defaultDevice = NULL;
 	IAudioEndpointVolume *endpointVolume = NULL;
 	HRESULT hr;
 	BOOL bMuted;
 	BOOL bSuccess = FALSE;
 
-	//hr = CoInitialize(NULL);
-	//if(SUCCEEDED(hr))
+	if(pDeviceEnumerator)
 	{
-		hr = CoCreateInstance(&XIID_MMDeviceEnumerator, NULL, CLSCTX_INPROC_SERVER, &XIID_IMMDeviceEnumerator, (LPVOID *)&deviceEnumerator);
+		hr = pDeviceEnumerator->lpVtbl->GetDefaultAudioEndpoint(pDeviceEnumerator, eRender, eConsole, &defaultDevice);
 		if(SUCCEEDED(hr))
 		{
-			hr = deviceEnumerator->lpVtbl->GetDefaultAudioEndpoint(deviceEnumerator, eRender, eConsole, &defaultDevice);
+			hr = defaultDevice->lpVtbl->Activate(defaultDevice, &XIID_IAudioEndpointVolume, CLSCTX_INPROC_SERVER, NULL, (LPVOID *)&endpointVolume);
 			if(SUCCEEDED(hr))
 			{
-				hr = defaultDevice->lpVtbl->Activate(defaultDevice, &XIID_IAudioEndpointVolume, CLSCTX_INPROC_SERVER, NULL, (LPVOID *)&endpointVolume);
-				if(SUCCEEDED(hr))
+				if(SUCCEEDED(endpointVolume->lpVtbl->GetMute(endpointVolume, &bMuted)))
 				{
-					if(SUCCEEDED(endpointVolume->lpVtbl->GetMute(endpointVolume, &bMuted)))
-					{
-						if(SUCCEEDED(endpointVolume->lpVtbl->SetMute(endpointVolume, !bMuted, NULL)))
-							bSuccess = TRUE;
-					}
-
-					endpointVolume->lpVtbl->Release(endpointVolume);
+					if(SUCCEEDED(endpointVolume->lpVtbl->SetMute(endpointVolume, !bMuted, NULL)))
+						bSuccess = TRUE;
 				}
 
-				defaultDevice->lpVtbl->Release(defaultDevice);
+				endpointVolume->lpVtbl->Release(endpointVolume);
 			}
 
-			deviceEnumerator->lpVtbl->Release(deviceEnumerator);
+			defaultDevice->lpVtbl->Release(defaultDevice);
 		}
-
-	//	CoUninitialize();
 	}
 
 	return bSuccess;
@@ -842,48 +856,38 @@ BOOL ToggleVolMuted()
 
 BOOL AddMasterVolumeLevelScalar(float fMasterVolumeAdd)
 {
-	IMMDeviceEnumerator *deviceEnumerator = NULL;
 	IMMDevice *defaultDevice = NULL;
 	IAudioEndpointVolume *endpointVolume = NULL;
 	HRESULT hr;
 	float fMasterVolume;
 	BOOL bSuccess = FALSE;
 
-	//hr = CoInitialize(NULL);
-	//if(SUCCEEDED(hr))
+	if(pDeviceEnumerator)
 	{
-		hr = CoCreateInstance(&XIID_MMDeviceEnumerator, NULL, CLSCTX_INPROC_SERVER, &XIID_IMMDeviceEnumerator, (LPVOID *)&deviceEnumerator);
+		hr = pDeviceEnumerator->lpVtbl->GetDefaultAudioEndpoint(pDeviceEnumerator, eRender, eConsole, &defaultDevice);
 		if(SUCCEEDED(hr))
 		{
-			hr = deviceEnumerator->lpVtbl->GetDefaultAudioEndpoint(deviceEnumerator, eRender, eConsole, &defaultDevice);
+			hr = defaultDevice->lpVtbl->Activate(defaultDevice, &XIID_IAudioEndpointVolume, CLSCTX_INPROC_SERVER, NULL, (LPVOID *)&endpointVolume);
 			if(SUCCEEDED(hr))
 			{
-				hr = defaultDevice->lpVtbl->Activate(defaultDevice, &XIID_IAudioEndpointVolume, CLSCTX_INPROC_SERVER, NULL, (LPVOID *)&endpointVolume);
-				if(SUCCEEDED(hr))
+				if(SUCCEEDED(endpointVolume->lpVtbl->GetMasterVolumeLevelScalar(endpointVolume, &fMasterVolume)))
 				{
-					if(SUCCEEDED(endpointVolume->lpVtbl->GetMasterVolumeLevelScalar(endpointVolume, &fMasterVolume)))
-					{
-						fMasterVolume += fMasterVolumeAdd;
+					fMasterVolume += fMasterVolumeAdd;
 
-						if(fMasterVolume < 0.0)
-							fMasterVolume = 0.0;
-						else if(fMasterVolume > 1.0)
-							fMasterVolume = 1.0;
+					if(fMasterVolume < 0.0)
+						fMasterVolume = 0.0;
+					else if(fMasterVolume > 1.0)
+						fMasterVolume = 1.0;
 
-						if(SUCCEEDED(endpointVolume->lpVtbl->SetMasterVolumeLevelScalar(endpointVolume, fMasterVolume, NULL)))
-							bSuccess = TRUE;
-					}
-
-					endpointVolume->lpVtbl->Release(endpointVolume);
+					if(SUCCEEDED(endpointVolume->lpVtbl->SetMasterVolumeLevelScalar(endpointVolume, fMasterVolume, NULL)))
+						bSuccess = TRUE;
 				}
 
-				defaultDevice->lpVtbl->Release(defaultDevice);
+				endpointVolume->lpVtbl->Release(endpointVolume);
 			}
 
-			deviceEnumerator->lpVtbl->Release(deviceEnumerator);
+			defaultDevice->lpVtbl->Release(defaultDevice);
 		}
-
-	//	CoUninitialize();
 	}
 
 	return bSuccess;

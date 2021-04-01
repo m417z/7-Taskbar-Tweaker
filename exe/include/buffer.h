@@ -1,6 +1,6 @@
 //**********************************************************************
 // File: buffer.h
-//	
+//
 // Custom Buffer-Manipulation Routines
 //
 // By RaMMicHaeL, 12.10.2009
@@ -22,7 +22,7 @@
 #undef MoveMemory
 #endif
 
-__forceinline 
+__forceinline
 void FillMemory(PVOID Destination, SIZE_T Length, BYTE Fill)
 {
 	volatile SIZE_T *sizet_p;
@@ -61,7 +61,7 @@ void FillMemory(PVOID Destination, SIZE_T Length, BYTE Fill)
 
 #define ZeroMemory(Destination, Length) FillMemory(Destination, Length, 0)
 
-__forceinline 
+__forceinline
 void CopyMemory(PVOID Destination, const VOID *Source, SIZE_T Length)
 {
 	volatile SIZE_T *sizet_p_dest, *sizet_p_src;
@@ -91,7 +91,7 @@ void CopyMemory(PVOID Destination, const VOID *Source, SIZE_T Length)
 	}
 }
 
-__forceinline 
+__forceinline
 void MoveMemory(PVOID Destination, const VOID *Source, SIZE_T Length)
 {
 	volatile SIZE_T *sizet_p_dest, *sizet_p_src;

@@ -45,27 +45,10 @@ BOOL RegisterDialogClass(LPCTSTR lpszClassName, HINSTANCE hInstance)
 
 WCHAR *LoadStrFromRsrc(UINT uStrId)
 {
-	static WCHAR szBuffer[1024+1];
-	DWORD dwExtraParam;
 	WCHAR *pStr;
-
-	dwExtraParam = uStrId & 0xFFF00000;
-	if(dwExtraParam)
-	{
-		dwExtraParam >>= 4*5;
-		dwExtraParam &= 0x00000FFF;
-
-		uStrId &= 0x000FFFFF;
-	}
 
 	if(!LoadString(NULL, uStrId, (WCHAR *)&pStr, 0))
 		pStr = L"(Could not load resource)";
-
-	if(dwExtraParam)
-	{
-		wsprintf(szBuffer, L"%s (%u)", pStr, dwExtraParam);
-		pStr = szBuffer;
-	}
 
 	return pStr;
 }
@@ -117,7 +100,7 @@ UINT GetUniqueTempDir(TCHAR *pPrefixString, TCHAR *pDir)
 
 BOOL RemoveDirectoryOnReboot(TCHAR *pDir)
 {
-	char *pVBScriptSrc = 
+	char *pVBScriptSrc =
 		"Sub Main()\r\n"
 		"\r\n"
 		"Set objFSO = CreateObject(\"Scripting.FileSystemObject\")\r\n"
@@ -163,7 +146,7 @@ BOOL RemoveDirectoryOnReboot(TCHAR *pDir)
 	if(!bSuccess || dwNumberOfBytesWritten != dwVBScriptLen)
 		return FALSE;
 
-	lRet = RegCreateKeyEx(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce", 
+	lRet = RegCreateKeyEx(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
 		0, NULL, 0, KEY_QUERY_VALUE|KEY_SET_VALUE, NULL, &hKey, NULL);
 	if(lRet != ERROR_SUCCESS)
 		return FALSE;
@@ -237,18 +220,18 @@ BOOL CanAccessFolder(LPCTSTR szFolderName, DWORD dwGenericAccessRights)
 	BOOL bRet = FALSE;
 	DWORD length = 0;
 
-	if(!GetFileSecurity(szFolderName, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | 
-		DACL_SECURITY_INFORMATION, NULL, 0, &length) && 
+	if(!GetFileSecurity(szFolderName, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION |
+		DACL_SECURITY_INFORMATION, NULL, 0, &length) &&
 		ERROR_INSUFFICIENT_BUFFER == GetLastError())
 	{
 		PSECURITY_DESCRIPTOR security = (PSECURITY_DESCRIPTOR)HeapAlloc(GetProcessHeap(), 0, length);
 
-		if(security && GetFileSecurity(szFolderName, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | 
+		if(security && GetFileSecurity(szFolderName, OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION |
 			DACL_SECURITY_INFORMATION, security, length, &length))
 		{
 			HANDLE hToken = NULL;
 
-			if(OpenProcessToken(GetCurrentProcess(), TOKEN_IMPERSONATE | TOKEN_QUERY | 
+			if(OpenProcessToken(GetCurrentProcess(), TOKEN_IMPERSONATE | TOKEN_QUERY |
 				TOKEN_DUPLICATE | STANDARD_RIGHTS_READ, &hToken ))
 			{
 				HANDLE hImpersonatedToken = NULL;
@@ -267,7 +250,7 @@ BOOL CanAccessFolder(LPCTSTR szFolderName, DWORD dwGenericAccessRights)
 
 					MapGenericMask(&dwGenericAccessRights, &mapping);
 
-					if(AccessCheck(security, hImpersonatedToken, dwGenericAccessRights, 
+					if(AccessCheck(security, hImpersonatedToken, dwGenericAccessRights,
 						&mapping, &privileges, &privilegesLength, &grantedAccess, &result))
 					{
 						bRet = (result != FALSE);

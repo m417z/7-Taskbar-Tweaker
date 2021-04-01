@@ -7,6 +7,7 @@
 #include "options_dlg_handle.h"
 #include "tweaker_messages.h"
 #include "explorer_inject.h"
+#include "library_load_errors.h"
 #include "settings.h"
 #include "settings_dlg.h"
 #include "advanced_options_dlg.h"
@@ -50,7 +51,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	InitSettings();
 
 	// Get language setting
-	if(!LoadTweakerSettings(&twSettings))
+	if(!LoadTweakerSettings())
 		MessageBox(NULL, L"Could not load settings", NULL, MB_ICONEXCLAMATION);
 	else if(twSettings.nLanguage)
 		SetThreadUILanguage(twSettings.nLanguage);
@@ -78,7 +79,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		!CompareWindowsBuildNumber(16299) &&
 		!CompareWindowsBuildNumber(17134) &&
 		!CompareWindowsBuildNumber(17763) &&
-		!CompareWindowsBuildNumber(18362)
+		!CompareWindowsBuildNumber(18362) &&
+		!CompareWindowsBuildNumber(18363) &&
+		!CompareWindowsBuildNumber(19041) &&
+		!CompareWindowsBuildNumber(19042)
 	)
 	{
 		if(MessageBox(NULL, LoadStrFromRsrc(IDS_BUILD_WARNING_TEXT), LoadStrFromRsrc(IDS_BUILD_WARNING_TITLE), MB_ICONEXCLAMATION | MB_YESNO) != IDYES)
@@ -229,6 +233,9 @@ BOOL Run(void)
 			for(int i = 0; i < DlgParam.nInitErrorsCount; i++)
 				MessageBox(hWnd, LoadStrFromRsrc(DlgParam.dwInitErrors[i]), NULL, MB_ICONHAND);
 
+			if(DlgParam.uInjectionErrorID)
+				InjectionErrorMsgBox(hWnd, DlgParam.uInjectionErrorID);
+
 			MSG msg;
 			BOOL bRet;
 			while((bRet = GetMessage(&msg, 0, 0, 0)) != FALSE)
@@ -236,7 +243,7 @@ BOOL Run(void)
 				if(bRet == -1)
 					continue;
 
-				if(!IsDialogMessage(hWnd, &msg) && 
+				if(!IsDialogMessage(hWnd, &msg) &&
 					(!DlgParam.hAdvancedOptionsWnd || !IsDialogMessage(DlgParam.hAdvancedOptionsWnd, &msg)))
 				{
 					TranslateMessage(&msg);
@@ -308,6 +315,9 @@ LRESULT CALLBACK DlgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	case WM_CTLCOLORSTATIC:
 		return OnCtlColorStatic(hWnd, uMsg, wParam, lParam, pDlgParam);
 
+	case WM_DPICHANGED:
+		return OnDpiChanged(hWnd, uMsg, wParam, lParam, pDlgParam);
+
 	case UWM_NOTIFYICON:
 		return OnUNotifyIcon(hWnd, uMsg, wParam, lParam, pDlgParam);
 
@@ -316,6 +326,9 @@ LRESULT CALLBACK DlgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 	case UWM_ADVANCED_OPTS_DLG:
 		return OnUAdvancedOptsDlg(hWnd, uMsg, wParam, lParam, pDlgParam);
+
+	case UWM_EJECTED_FROM_EXPLORER:
+		return OnUEjectedFromExplorer(hWnd, uMsg, wParam, lParam, pDlgParam);
 
 	case WM_COPYDATA:
 		return OnCopyData(hWnd, uMsg, wParam, lParam, pDlgParam);
@@ -356,7 +369,7 @@ LRESULT OnInitDialog(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PAR
 
 	pDlgParam->hAdvancedOptionsWnd = NULL;
 	pDlgParam->nInitErrorsCount = 0;
-	pDlgParam->bInjectFailed = FALSE;
+	pDlgParam->uInjectionErrorID = 0;
 	pDlgParam->bLangChanged = FALSE;
 	pDlgParam->nExitBlockCount = 0;
 	pDlgParam->bClosing = FALSE;
@@ -382,6 +395,8 @@ LRESULT OnInitDialog(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PAR
 
 		if(ExplorerIsInjected())
 			SendNewHwndMessage(ExplorerGetTaskbarWnd(), pDlgParam->uTweakerMsg, hWnd);
+		else
+			EnableOptions(hWnd, FALSE);
 
 		return FALSE;
 	}
@@ -422,11 +437,14 @@ LRESULT OnInitDialog(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PAR
 	InitDlg(hWnd, pDlgParam->nOptions);
 
 	// Inject
-	uErrorID = ExplorerInject(hWnd, twSettings.nLanguage, pDlgParam->nOptions, szIniFile);
+	uErrorID = ExplorerInject(hWnd, UWM_EJECTED_FROM_EXPLORER, twSettings.nLanguage, pDlgParam->nOptions, szIniFile);
 	if(uErrorID)
 	{
-		pDlgParam->dwInitErrors[pDlgParam->nInitErrorsCount++] = uErrorID;
-		pDlgParam->bInjectFailed = TRUE;
+		// Don't show an error message if the taskbar wasn't found
+		if(uErrorID != IDS_INJERROR_NOTBAR)
+			pDlgParam->uInjectionErrorID = uErrorID;
+
+		EnableOptions(hWnd, FALSE);
 	}
 
 	// Done
@@ -448,7 +466,14 @@ LRESULT OnNcHitTest(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARA
 LRESULT OnCtlColorDlg(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM *pDlgParam)
 {
 	if(IsHighContrastOn())
-		return FALSE;
+		return 0;
+
+	COLORREF bkColor = GetSysColor(COLOR_WINDOW);
+	if(GetRValue(bkColor) + GetGValue(bkColor) + GetBValue(bkColor) < 128 * 3)
+	{
+		// Dark background, leave it to keep text readable
+		return 0;
+	}
 
 	return (LRESULT)pDlgParam->hBgBrush;
 }
@@ -458,13 +483,29 @@ LRESULT OnCtlColorStatic(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG
 	RECT rc;
 
 	if(IsHighContrastOn())
-		return FALSE;
+		return 0;
+
+	COLORREF bkColor = GetSysColor(COLOR_WINDOW);
+	if(GetRValue(bkColor) + GetGValue(bkColor) + GetBValue(bkColor) < 128 * 3)
+	{
+		// Dark background, leave it to keep text readable
+		return 0;
+	}
 
 	SetBkMode((HDC)wParam, TRANSPARENT);
 	GetWindowRect((HWND)lParam, &rc);
 	MapWindowPoints(NULL, hWnd, (LPPOINT)&rc, 2);
 	SetBrushOrgEx((HDC)wParam, -rc.left, -rc.top, NULL);
 	return (LRESULT)pDlgParam->hBgBrush;
+}
+
+LRESULT OnDpiChanged(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM* pDlgParam)
+{
+	if(pDlgParam->hBgBrush)
+		DeleteObject(pDlgParam->hBgBrush);
+
+	pDlgParam->hBgBrush = CreateBgBrush(hWnd);
+	return 0;
 }
 
 LRESULT OnUNotifyIcon(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM *pDlgParam)
@@ -579,6 +620,12 @@ LRESULT OnUAdvancedOptsDlg(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, D
 	}
 
 	return FALSE;
+}
+
+LRESULT OnUEjectedFromExplorer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM* pDlgParam)
+{
+	EnableOptions(hWnd, FALSE);
+	return 0;
 }
 
 LRESULT OnCopyData(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM *pDlgParam)
@@ -783,14 +830,20 @@ LRESULT OnRegisteredTaskbarCreated(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
 	Shell_NotifyIcon(NIM_ADD, &pDlgParam->nid);
 	Shell_NotifyIcon(NIM_SETVERSION, &pDlgParam->nid);
 
-	if(!ExplorerIsInjected() && !pDlgParam->bInjectFailed)
+	if(!ExplorerIsInjected() && !pDlgParam->uInjectionErrorID)
 	{
-		UINT uErrorID = ExplorerInject(hWnd, twSettings.nLanguage, pDlgParam->nOptions, szIniFile);
+		UINT uErrorID = ExplorerInject(hWnd, UWM_EJECTED_FROM_EXPLORER, twSettings.nLanguage, pDlgParam->nOptions, szIniFile);
 		if(uErrorID)
 		{
-			pDlgParam->bInjectFailed = TRUE; // Prevents infinite crashes and restarts of explorer
-			MessageBox(IsWindowEnabled(hWnd) ? hWnd : GetLastActivePopup(hWnd), LoadStrFromRsrc(uErrorID), NULL, MB_ICONHAND);
+			// Don't show an error message if the taskbar wasn't found
+			if(uErrorID != IDS_INJERROR_NOTBAR)
+			{
+				pDlgParam->uInjectionErrorID = uErrorID; // Prevents infinite crashes and restarts of explorer
+				InjectionErrorMsgBox(IsWindowEnabled(hWnd) ? hWnd : GetLastActivePopup(hWnd), uErrorID);
+			}
 		}
+		else
+			EnableOptions(hWnd, TRUE);
 	}
 
 	return FALSE;
@@ -959,7 +1012,7 @@ HBRUSH CreateBgBrush(HWND hWnd)
 						for(i=0; i<middle_bmp_count; i++)
 							BitBlt(hdcBg, 0, (height1-height_top_cut)+height2*i, 1, height2, hdcBitmap2, 0, 0, SRCCOPY);
 
-						BitBlt(hdcBg, 0, height_client-(height3-height_bottom_cut), 
+						BitBlt(hdcBg, 0, height_client-(height3-height_bottom_cut),
 							1, height3-height_bottom_cut, hdcBitmap3, 0, 0, SRCCOPY);
 					}
 
@@ -1206,6 +1259,92 @@ void AboutMsgBox(HWND hWnd)
 		tdcTaskDialogConfig.dwFlags |= TDF_RTL_LAYOUT;
 
 	TaskDialogIndirect(&tdcTaskDialogConfig, NULL, NULL, NULL);
+}
+
+void InjectionErrorMsgBox(HWND hWnd, UINT uErrorID)
+{
+	DWORD dwExtraParam = (uErrorID & 0xFFF00000) >> (4 * 5);
+	if(!dwExtraParam)
+	{
+		MessageBox(hWnd, LoadStrFromRsrc(uErrorID), NULL, MB_ICONHAND);
+		return;
+	}
+
+	UINT uStrId = uErrorID & 0x000FFFFF;
+	WCHAR *pStr = LoadStrFromRsrc(uStrId);
+
+	WCHAR *pErrorDescription = NULL;
+
+	switch(dwExtraParam)
+	{
+	case INJ_ERR_BEFORE_RUN:
+	case INJ_ERR_BEFORE_GETMODULEHANDLE:
+	case INJ_ERR_BEFORE_LOADLIBRARY:
+	case INJ_ERR_BEFORE_GETPROCADDR:
+	case INJ_ERR_GETMODULEHANDLE:
+	case INJ_ERR_LOADLIBRARY:
+	case INJ_ERR_GETPROCADDR:
+		pErrorDescription = L"Explorer failed to run the library loading code.";
+		break;
+
+	case LIB_ERR_INIT_ALREADY_CALLED:
+		pErrorDescription = L"The library is already loaded.";
+		break;
+
+	case LIB_ERR_LIB_VER_MISMATCH:
+		pErrorDescription = L"The library version doesn't match, try to reinstall the tweaker.";
+		break;
+
+	case LIB_ERR_WIN_VER_MISMATCH:
+		pErrorDescription = L"Unknown explorer version.";
+		break;
+
+	case INJ_ERR_BEFORE_LIBINIT:
+	case LIB_ERR_FIND_IMPORT_1:
+	case LIB_ERR_FIND_IMPORT_2:
+	case LIB_ERR_WND_TASKBAR:
+	case LIB_ERR_WND_TASKBAND:
+	case LIB_ERR_WND_TASKSW:
+	case LIB_ERR_WND_TRAYNOTIFY:
+	case LIB_ERR_WND_TASKLIST:
+	case LIB_ERR_WND_THUMB:
+	case LIB_ERR_WND_TRAYOVERFLOWTOOLBAR:
+	case LIB_ERR_WND_TRAYTEMPORARYTOOLBAR:
+	case LIB_ERR_WND_TRAYTOOLBAR:
+	case LIB_ERR_WND_TRAYCLOCK:
+	case LIB_ERR_WND_SHOWDESKTOP:
+	case LIB_ERR_WND_W7STARTBTN:
+	case LIB_ERR_MSG_DLL_INIT:
+	case LIB_ERR_WAITTHREAD:
+	case LIB_ERR_EXTHREAD_MINHOOK:
+	case LIB_ERR_EXTHREAD_MINHOOK_PRELOADED:
+	case LIB_ERR_EXTHREAD_MOUSECTRL:
+	case LIB_ERR_EXTHREAD_KEYBDHOTKEYS:
+	case LIB_ERR_EXTHREAD_APPIDLISTS:
+	case LIB_ERR_EXTHREAD_COMFUNCHOOK:
+	case LIB_ERR_EXTHREAD_DPAHOOK:
+	case LIB_ERR_EXTHREAD_REFRESHTASKBAR:
+	case LIB_ERR_EXTHREAD_MINHOOK_APPLY:
+	case EXE_ERR_READ_PROC_MEM:
+		pErrorDescription = L"Library initialization failed, perhaps your Windows version is not supported.";
+		break;
+
+	case EXE_ERR_VIRTUAL_ALLOC:
+	case EXE_ERR_WRITE_PROC_MEM:
+	case EXE_ERR_CREATE_REMOTE_THREAD:
+		pErrorDescription = L"Failed to inject the library into explorer. "
+			L"This is usually caused by an antivirus, which denies access to explorer due to security concerns. "
+			L"Try whitelisting the tweaker or contact your antivirus vendor for support.";
+		break;
+	}
+
+	WCHAR szBuffer[1024 + 1];
+	wsprintf(szBuffer, L"%s (%u)%s%s", pStr, dwExtraParam,
+		pErrorDescription ? L"\n\n" : L"",
+		pErrorDescription ? pErrorDescription : L""
+	);
+
+	MessageBox(hWnd, szBuffer, NULL, MB_ICONHAND);
 }
 
 HRESULT CALLBACK AboutMsgTaskDialogCallbackProc(HWND hWnd, UINT uNotification, WPARAM wParam, LPARAM lParam, LONG_PTR dwRefData)

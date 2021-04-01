@@ -608,7 +608,7 @@ void SwitchToTaskItem(LONG_PTR *task_item)
 	if(nWinVersion >= WIN_VERSION_811)
 	{
 		// CTaskBand::SwitchTo(this, task_item, true_means_bring_to_front_false_means_toggle_minimize_restore)
-		((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, BOOL))plp[DO2(7, 0 /* omitted from public code */)])(this_ptr, task_item, TRUE);
+		FUNC_CTaskBand_SwitchTo(plp)(this_ptr, task_item, TRUE);
 	}
 	else
 	{
@@ -662,7 +662,7 @@ void MinimizeTaskItem(LONG_PTR *task_item)
 		if(nWinVersion >= WIN_VERSION_811)
 		{
 			// CTaskBand::SwitchTo(this, task_item, true_means_bring_to_front_false_means_toggle_minimize_restore)
-			((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, BOOL))plp[DO2(7, 0 /* omitted from public code */)])(this_ptr, task_item, FALSE);
+			FUNC_CTaskBand_SwitchTo(plp)(this_ptr, task_item, FALSE);
 		}
 		else
 		{
@@ -703,38 +703,63 @@ void MinimizeThumbTaskItem(LONG_PTR *task_item)
 
 void CloseTaskItem(LONG_PTR *task_item, BOOL bSwitchOnTimeout)
 {
-	if(CanCloseTaskItem(task_item))
+	if(!CanCloseTaskItem(task_item))
 	{
-		if(IsWindows811ImmersiveTaskItem(task_item))
+		SwitchToTaskItem(task_item);
+		return;
+	}
+
+	BOOL bAskExplorerToClose = IsWindows811ImmersiveTaskItem(task_item);
+
+	if(!bAskExplorerToClose && nWinVersion >= WIN_VERSION_10_T1)
+	{
+		// Windows 10:
+		// Don't switch on timeout for immersive windows, since it can cause
+		// the app to re-launch after closing.
+		// That probably happens because if the app is closing but the window
+		// still exists, switching to it launches the app again.
+		// Note: Most UWP apps don't have a closing prompt, but some do. The
+		// issue also exists in Windows:
+		// https://github.com/microsoft/ProjectReunion/issues/59
+
+		LONG_PTR this_ptr = (LONG_PTR)task_item;
+		LONG_PTR *plp = *(LONG_PTR **)this_ptr;
+
+		// CWindowTaskItem::IsImmersive(this)
+		BOOL bIsImmersive = FUNC_CWindowTaskItem_IsImmersive(plp)(this_ptr) != 0;
+		if(bIsImmersive)
 		{
-			LONG_PTR this_ptr = (LONG_PTR)(lpTaskSwLongPtr + DO2_3264(0x20, 0x40, 0, 0 /* omitted from public code */));
-			LONG_PTR *plp = *(LONG_PTR **)this_ptr;
-
-			// CTaskBand::CloseItem(this, task_item)
-			((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *))plp[15])(this_ptr, task_item);
-		}
-		else
-		{
-			// We could use CTaskBand::CloseItem for non-immersive windows too, but:
-			// 1. CTaskBand::CloseItem is available only since Windows 8.1.1
-			// 2. Our implementation is better, as CTaskBand::CloseItem brings the window to front before closing
-
-			HWND hWnd = GetTaskItemWnd(task_item);
-
-			DWORD dwProcessId;
-			GetWindowThreadProcessId(hWnd, &dwProcessId);
-			AllowSetForegroundWindow(dwProcessId);
-			PostMessage(hWnd, WM_SYSCOMMAND, SC_CLOSE, 0);
-
-			if(bSwitchOnTimeout && !closing_task_item)
-			{
-				closing_task_item = task_item;
-				SetTimer(NULL, 0, 50, SwitchToWindowTimerProc);
-			}
+			bAskExplorerToClose = TRUE;
 		}
 	}
-	else
-		SwitchToTaskItem(task_item);
+
+	if(bAskExplorerToClose)
+	{
+		LONG_PTR this_ptr = (LONG_PTR)(lpTaskSwLongPtr + DO2_3264(0x20, 0x40, 0, 0 /* omitted from public code */));
+		LONG_PTR *plp = *(LONG_PTR **)this_ptr;
+
+		// CTaskBand::CloseItem(this, task_item)
+		FUNC_CTaskBand_CloseItem(plp)(this_ptr, task_item);
+
+		return;
+	}
+
+	// We could use CTaskBand::CloseItem for non-immersive windows too, but:
+	// 1. CTaskBand::CloseItem is available only since Windows 8.1.1
+	// 2. Our implementation is better, as CTaskBand::CloseItem brings the window to front before closing
+
+	HWND hWnd = GetTaskItemWnd(task_item);
+
+	DWORD dwProcessId;
+	GetWindowThreadProcessId(hWnd, &dwProcessId);
+	AllowSetForegroundWindow(dwProcessId);
+	PostMessage(hWnd, WM_SYSCOMMAND, SC_CLOSE, 0);
+
+	if(bSwitchOnTimeout && !closing_task_item)
+	{
+		closing_task_item = task_item;
+		SetTimer(NULL, 0, 50, SwitchToWindowTimerProc);
+	}
 }
 
 static VOID CALLBACK SwitchToWindowTimerProc(HWND hWnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime)
@@ -758,7 +783,7 @@ static VOID CALLBACK SwitchToWindowTimerProc(HWND hWnd, UINT uMsg, UINT_PTR idEv
 
 static BOOL IsValidTaskItem(LONG_PTR *task_item)
 {
-	LONG_PTR *plp = (LONG_PTR *)*EV_TASK_SW_TASK_GROUPS_HDPA;
+	LONG_PTR *plp = (LONG_PTR *)*EV_TASK_SW_TASK_GROUPS_HDPA();
 	if(!plp || (int)plp[0] == 0)
 		return FALSE;
 
@@ -840,15 +865,15 @@ BOOL TaskbarMoveButtonInGroup(MOVE_BUTTON_IN_GROUP *p_move_button)
 	index_from = p_move_button->index_from;
 	index_to = p_move_button->index_to;
 
-	task_group = (LONG_PTR *)button_group[DO2(3, 4)];
+	task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
 
-	plp = (LONG_PTR *)button_group[DO2(5, 7)];
+	plp = (LONG_PTR *)button_group[DO2(5, 0 /* omitted from public code */)];
 
 	buttons_count = (int)plp[0];
 	buttons = (LONG_PTR **)plp[1];
 
-	task_item_from = (LONG_PTR *)buttons[index_from][DO2(3, 4)];
-	task_item_to = (LONG_PTR *)buttons[index_to][DO2(3, 4)];
+	task_item_from = (LONG_PTR *)buttons[index_from][DO2(3, 0 /* omitted from public code */)];
+	task_item_to = (LONG_PTR *)buttons[index_to][DO2(3, 0 /* omitted from public code */)];
 
 	return TaskbarMoveTaskInGroup(task_group, task_item_from, task_item_to);
 }
@@ -868,8 +893,8 @@ BOOL TaskbarMoveThumbInGroup(LONG_PTR lpMMThumbnailLongPtr, int index_from, int 
 	thumbs_count = (int)plp[0];
 	thumbs = (LONG_PTR **)plp[1];
 
-	task_item_from = (LONG_PTR *)thumbs[index_from][DO2(2, 3)];
-	task_item_to = (LONG_PTR *)thumbs[index_to][DO2(2, 3)];
+	task_item_from = (LONG_PTR *)thumbs[index_from][DO2(2, 0 /* omitted from public code */)];
+	task_item_to = (LONG_PTR *)thumbs[index_to][DO2(2, 0 /* omitted from public code */)];
 
 	return TaskbarMoveTaskInGroup(task_group, task_item_from, task_item_to);
 }
@@ -958,10 +983,10 @@ static void TaskbarMoveTaskInTaskList(LONG_PTR lpMMTaskListLongPtr,
 	button_group = ButtonGroupFromTaskGroup(lpMMTaskListLongPtr, task_group);
 	if(button_group)
 	{
-		button_group_type = (int)button_group[DO2(6, 8)];
+		button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
 		if(button_group_type == 1 || button_group_type == 3)
 		{
-			plp = (LONG_PTR *)button_group[DO2(5, 7)];
+			plp = (LONG_PTR *)button_group[DO2(5, 0 /* omitted from public code */)];
 
 			hButtonsDpa = (HDPA)plp;
 
@@ -970,7 +995,7 @@ static void TaskbarMoveTaskInTaskList(LONG_PTR lpMMTaskListLongPtr,
 
 			for(i = 0; i < buttons_count; i++)
 			{
-				if((LONG_PTR *)buttons[i][DO2(3, 4)] == task_item_from)
+				if((LONG_PTR *)buttons[i][DO2(3, 0 /* omitted from public code */)] == task_item_from)
 				{
 					index_from = i;
 					break;
@@ -981,7 +1006,7 @@ static void TaskbarMoveTaskInTaskList(LONG_PTR lpMMTaskListLongPtr,
 			{
 				for(i = 0; i < buttons_count; i++)
 				{
-					if((LONG_PTR *)buttons[i][DO2(3, 4)] == task_item_to)
+					if((LONG_PTR *)buttons[i][DO2(3, 0 /* omitted from public code */)] == task_item_to)
 					{
 						index_to = i;
 						break;
@@ -1027,7 +1052,7 @@ static void TaskbarMoveTaskInTaskList(LONG_PTR lpMMTaskListLongPtr,
 
 		for(i = 0; i < thumbs_count; i++)
 		{
-			if((LONG_PTR *)thumbs[i][DO2(2, 3)] == task_item_from)
+			if((LONG_PTR *)thumbs[i][DO2(2, 0 /* omitted from public code */)] == task_item_from)
 			{
 				index_from = i;
 				break;
@@ -1038,7 +1063,7 @@ static void TaskbarMoveTaskInTaskList(LONG_PTR lpMMTaskListLongPtr,
 		{
 			for(i = 0; i < thumbs_count; i++)
 			{
-				if((LONG_PTR *)thumbs[i][DO2(2, 3)] == task_item_to)
+				if((LONG_PTR *)thumbs[i][DO2(2, 0 /* omitted from public code */)] == task_item_to)
 				{
 					index_to = i;
 					break;
@@ -1112,7 +1137,7 @@ LONG_PTR *ButtonGroupFromTaskGroup(LONG_PTR lpMMTaskListLongPtr, LONG_PTR *task_
 	button_groups = (LONG_PTR **)plp[1];
 
 	for(i = 0; i < button_groups_count; i++)
-		if((LONG_PTR *)button_groups[i][DO2(3, 4)] == task_group)
+		if((LONG_PTR *)button_groups[i][DO2(3, 0 /* omitted from public code */)] == task_group)
 			return button_groups[i];
 
 	return NULL;
@@ -1160,7 +1185,7 @@ BOOL TaskbarMoveGroup(LONG_PTR lpMMTaskListLongPtr, int index_from, int index_to
 	while(nCount--)
 	{
 		button_group = (LONG_PTR *)*dpa_ptr;
-		task_group = (LONG_PTR *)button_group[DO2(3, 4)];
+		task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
 
 		*EV_TASKGROUP_VISUAL_ORDER(task_group) = nVisualOrder;
 
@@ -1205,6 +1230,53 @@ BOOL TaskbarMoveGroup(LONG_PTR lpMMTaskListLongPtr, int index_from, int index_to
 	return TRUE;
 }
 
+BOOL TaskbarMoveGroupByTaskItem(LONG_PTR lpMMTaskListLongPtr, LONG_PTR *task_item, int nMoveDelta)
+{
+	LONG_PTR *plp = (LONG_PTR *)*EV_MM_TASKLIST_BUTTON_GROUPS_HDPA(lpMMTaskListLongPtr);
+	if(!plp)
+		return FALSE;
+
+	int button_groups_count = (int)plp[0];
+	LONG_PTR **button_groups = (LONG_PTR **)plp[1];
+
+	int index_from = -1;
+
+	for(int i = 0; i < button_groups_count && index_from == -1; i++)
+	{
+		LONG_PTR *button_group = button_groups[i];
+
+		LONG_PTR *task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
+		plp = (LONG_PTR *)task_group[4];
+		if(!plp)
+			continue;
+
+		int task_items_count = (int)plp[0];
+		LONG_PTR **task_items = (LONG_PTR **)plp[1];
+
+		for(int j = 0; j < task_items_count; j++)
+		{
+			if(task_items[j] == task_item)
+			{
+				index_from = i;
+				break;
+			}
+		}
+	}
+
+	if(index_from == -1)
+		return FALSE;
+
+	int index_to = index_from + nMoveDelta;
+	index_to %= button_groups_count;
+	if(index_to < 0)
+		index_to += button_groups_count;
+
+	if(index_from == index_to)
+		return TRUE;
+
+	return TaskbarMoveGroup(lpMMTaskListLongPtr, index_from, index_to);
+}
+
 static BOOL TaskbarScrollRight(int button_groups_count, LONG_PTR **button_groups,
 	int *p_button_group_index, int *p_button_index,
 	int *p_buttons_count, LONG_PTR ***p_buttons)
@@ -1224,11 +1296,11 @@ static BOOL TaskbarScrollRight(int button_groups_count, LONG_PTR **button_groups
 			if(button_group_index >= button_groups_count)
 				return FALSE;
 
-			button_group_type = (int)button_groups[button_group_index][DO2(6, 8)];
+			button_group_type = (int)button_groups[button_group_index][DO2(6, 0 /* omitted from public code */)];
 		}
 		while(button_group_type != 1 && button_group_type != 3);
 
-		plp = (LONG_PTR *)button_groups[button_group_index][DO2(5, 7)];
+		plp = (LONG_PTR *)button_groups[button_group_index][DO2(5, 0 /* omitted from public code */)];
 		buttons_count = (int)plp[0];
 		buttons = (LONG_PTR **)plp[1];
 
@@ -1265,11 +1337,11 @@ static BOOL TaskbarScrollLeft(int button_groups_count, LONG_PTR **button_groups,
 			if(button_group_index < 0)
 				return FALSE;
 
-			button_group_type = (int)button_groups[button_group_index][DO2(6, 8)];
+			button_group_type = (int)button_groups[button_group_index][DO2(6, 0 /* omitted from public code */)];
 		}
 		while(button_group_type != 1 && button_group_type != 3);
 
-		plp = (LONG_PTR *)button_groups[button_group_index][DO2(5, 7)];
+		plp = (LONG_PTR *)button_groups[button_group_index][DO2(5, 0 /* omitted from public code */)];
 		buttons_count = (int)plp[0];
 		buttons = (LONG_PTR **)plp[1];
 
@@ -1301,7 +1373,7 @@ static LONG_PTR *TaskbarScrollHelper(int button_groups_count, LONG_PTR **button_
 
 	if(button_group_index != -1)
 	{
-		plp = (LONG_PTR *)button_groups[button_group_index][DO2(5, 7)];
+		plp = (LONG_PTR *)button_groups[button_group_index][DO2(5, 0 /* omitted from public code */)];
 		buttons_count = (int)plp[0];
 		buttons = (LONG_PTR **)plp[1];
 	}
@@ -1324,7 +1396,7 @@ static LONG_PTR *TaskbarScrollHelper(int button_groups_count, LONG_PTR **button_
 				&button_group_index, &button_index,
 				&buttons_count, &buttons);
 			while(bScrollSucceeded &&
-				bSkipMinimized && IsMinimizedTaskItem((LONG_PTR *)buttons[button_index][DO2(3, 4)]))
+				bSkipMinimized && IsMinimizedTaskItem((LONG_PTR *)buttons[button_index][DO2(3, 0 /* omitted from public code */)]))
 			{
 				bScrollSucceeded = TaskbarScrollRight(button_groups_count, button_groups,
 					&button_group_index, &button_index,
@@ -1337,7 +1409,7 @@ static LONG_PTR *TaskbarScrollHelper(int button_groups_count, LONG_PTR **button_
 				&button_group_index, &button_index,
 				&buttons_count, &buttons);
 			while(bScrollSucceeded &&
-				bSkipMinimized && IsMinimizedTaskItem((LONG_PTR *)buttons[button_index][DO2(3, 4)]))
+				bSkipMinimized && IsMinimizedTaskItem((LONG_PTR *)buttons[button_index][DO2(3, 0 /* omitted from public code */)]))
 			{
 				bScrollSucceeded = TaskbarScrollLeft(button_groups_count, button_groups,
 					&button_group_index, &button_index,
@@ -1366,7 +1438,7 @@ static LONG_PTR *TaskbarScrollHelper(int button_groups_count, LONG_PTR **button_
 				button_group_index = prev_button_group_index;
 				button_index = prev_button_index;
 
-				plp = (LONG_PTR *)button_groups[button_group_index][DO2(5, 7)];
+				plp = (LONG_PTR *)button_groups[button_group_index][DO2(5, 0 /* omitted from public code */)];
 				buttons_count = (int)plp[0];
 				buttons = (LONG_PTR **)plp[1];
 
@@ -1381,7 +1453,7 @@ static LONG_PTR *TaskbarScrollHelper(int button_groups_count, LONG_PTR **button_
 	if(button_group_index == button_group_index_active && button_index == button_index_active)
 		return NULL;
 
-	return (LONG_PTR *)buttons[button_index][DO2(3, 4)];
+	return (LONG_PTR *)buttons[button_index][DO2(3, 0 /* omitted from public code */)];
 }
 
 LONG_PTR *TaskbarScroll(LONG_PTR lpMMTaskListLongPtr, int nRotates, BOOL bSkipMinimized, BOOL bWarpAround, LONG_PTR *src_task_item)
@@ -1410,16 +1482,16 @@ LONG_PTR *TaskbarScroll(LONG_PTR lpMMTaskListLongPtr, int nRotates, BOOL bSkipMi
 	{
 		for(i = 0; i < button_groups_count; i++)
 		{
-			button_group_type = (int)button_groups[i][DO2(6, 8)];
+			button_group_type = (int)button_groups[i][DO2(6, 0 /* omitted from public code */)];
 			if(button_group_type == 1 || button_group_type == 3)
 			{
-				plp = (LONG_PTR *)button_groups[i][DO2(5, 7)];
+				plp = (LONG_PTR *)button_groups[i][DO2(5, 0 /* omitted from public code */)];
 				buttons_count = (int)plp[0];
 				buttons = (LONG_PTR **)plp[1];
 
 				for(j = 0; j < buttons_count; j++)
 				{
-					if((LONG_PTR *)buttons[j][DO2(3, 4)] == src_task_item)
+					if((LONG_PTR *)buttons[j][DO2(3, 0 /* omitted from public code */)] == src_task_item)
 					{
 						button_group_index_active = i;
 						button_index_active = j;
@@ -1477,7 +1549,7 @@ LONG_PTR *TaskbarGetTrackedButton(LONG_PTR lpMMTaskListLongPtr)
 	if(!button_group_tracked || button_index_tracked < 0)
 		return NULL;
 
-	LONG_PTR *plp = (LONG_PTR *)button_group_tracked[DO2(5, 7)];
+	LONG_PTR *plp = (LONG_PTR *)button_group_tracked[DO2(5, 0 /* omitted from public code */)];
 	LONG_PTR **buttons = (LONG_PTR **)plp[1];
 
 	return buttons[button_index_tracked];
@@ -1489,7 +1561,7 @@ LONG_PTR *TaskbarGetTrackedTaskItem(LONG_PTR lpMMTaskListLongPtr)
 	if(!button)
 		return NULL;
 
-	return (LONG_PTR *)button[DO2(3, 4)];
+	return (LONG_PTR *)button[DO2(3, 0 /* omitted from public code */)];
 }
 
 LONG_PTR *ThumbnailGetTrackedTaskItem(LONG_PTR lpMMThumbnailLongPtr, LONG_PTR **p_container_task_item)
@@ -1505,7 +1577,7 @@ LONG_PTR *ThumbnailGetTrackedTaskItem(LONG_PTR lpMMThumbnailLongPtr, LONG_PTR **
 	plp = (LONG_PTR *)*EV_MM_THUMBNAIL_THUMBNAILS_HDPA(lpMMThumbnailLongPtr);
 	plp = (LONG_PTR *)plp[1];
 	plp = (LONG_PTR *)plp[tracked_thumb_index];
-	task_item = (LONG_PTR *)plp[DO2(2, 3)];
+	task_item = (LONG_PTR *)plp[DO2(2, 0 /* omitted from public code */)];
 
 	if(p_container_task_item)
 	{
@@ -1520,7 +1592,7 @@ LONG_PTR *TaskbarGetTrackedButtonGroup(LONG_PTR lpMMTaskListLongPtr)
 	int button_index_tracked = *EV_MM_TASKLIST_TRACKED_BUTTON_INDEX(lpMMTaskListLongPtr);
 	if(button_index_tracked == -1)
 	{
-		// Sometimes, button_index_tracked is -1, which means that no button is tracked, 
+		// Sometimes, button_index_tracked is -1, which means that no button is tracked,
 		// but tracked_button_group is still not NULL. We want to get NULL in these cases.
 		return NULL;
 	}
@@ -1550,10 +1622,10 @@ LONG_PTR *TaskbarGetActiveButton(LONG_PTR lpMMTaskListLongPtr)
 		return NULL;
 	}
 
-	int button_group_type = (int)button_group_active[DO2(6, 8)];
+	int button_group_type = (int)button_group_active[DO2(6, 0 /* omitted from public code */)];
 	if(button_group_type == 1 || button_group_type == 3)
 	{
-		LONG_PTR *plp = (LONG_PTR *)button_group_active[DO2(5, 7)];
+		LONG_PTR *plp = (LONG_PTR *)button_group_active[DO2(5, 0 /* omitted from public code */)];
 		int buttons_count = (int)plp[0];
 		LONG_PTR **buttons = (LONG_PTR **)plp[1];
 
@@ -1569,7 +1641,7 @@ LONG_PTR *TaskbarGetActiveTaskItem(LONG_PTR lpMMTaskListLongPtr)
 	if(!button)
 		return NULL;
 
-	return (LONG_PTR *)button[DO2(3, 4)];
+	return (LONG_PTR *)button[DO2(3, 0 /* omitted from public code */)];
 }
 
 void SortButtonGroupItems(LONG_PTR *button_group)
@@ -1583,10 +1655,10 @@ void SortButtonGroupItems(LONG_PTR *button_group)
 	WCHAR szBuffer[MAX_PATH], szCmpBuffer[MAX_PATH];
 	int i, j;
 
-	button_group_type = (int)button_group[DO2(6, 8)];
+	button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
 	if(button_group_type == 1 || button_group_type == 3)
 	{
-		plp = (LONG_PTR *)button_group[DO2(5, 7)];
+		plp = (LONG_PTR *)button_group[DO2(5, 0 /* omitted from public code */)];
 
 		buttons_count = (int)plp[0];
 		buttons = (LONG_PTR **)plp[1];
@@ -1666,8 +1738,8 @@ void TaskListRecomputeLayout(LONG_PTR lpMMTaskListLongPtr)
 	this_ptr = lpMMTaskListLongPtr + DEF3264(0x14, 0x28);
 	plp = *(LONG_PTR **)this_ptr;
 
-	// CTaskListWnd::AutoSize
-	((LONG_PTR(__stdcall *)(LONG_PTR))plp[DO2(15, 0 /* omitted from public code */)])(this_ptr);
+	// CTaskListWnd::AutoSize(this)
+	FUNC_CTaskListWnd_AutoSize(plp)(this_ptr);
 
 	if(nWinVersion >= WIN_VERSION_8)
 		MHP_HookGetClientRect(NULL);
@@ -1725,7 +1797,7 @@ DWORD TaskbarGetPreference(LONG_PTR lpMMTaskListLongPtr)
 
 	if(lpMMTaskListLongPtr == lpTaskListLongPtr)
 	{
-		return *EV_TASK_SW_PREFERENCES;
+		return *EV_TASK_SW_PREFERENCES();
 	}
 	else
 	{
@@ -1747,8 +1819,8 @@ void ShowLivePreview(LONG_PTR lpMMThumbnailLongPtr, HWND hWnd)
 	this_ptr = *(LONG_PTR *)(lpMMThumbnailLongPtr + DO2_3264(0x20, 0x40, 0, 0 /* omitted from public code */));
 	plp = *(LONG_PTR **)this_ptr;
 
-	// CTaskListWnd::ShowLivePreview(arg, hWnd, uFlags)
-	((LONG_PTR(__stdcall *)(LONG_PTR, HWND, LONG_PTR))plp[DO2(18, 0 /* omitted from public code */)])(this_ptr, hWnd, 1);
+	// CTaskListWnd::ShowLivePreview(this, hWnd, uFlags)
+	FUNC_CTaskListWnd_ShowLivePreview(plp)(this_ptr, hWnd, 1);
 }
 
 void TaskbarToggleAutoHide(void)
@@ -1757,7 +1829,7 @@ void TaskbarToggleAutoHide(void)
 	COPYDATASTRUCT cds;
 	DWORD pdwBuffer[11];
 
-	dwSetting = *EV_TASKBAR_SETTINGS;
+	dwSetting = *EV_TASKBAR_SETTINGS();
 	dwSetting &= 1;
 
 	cds.dwData = 0;
@@ -1794,7 +1866,7 @@ int GetSecondaryTaskListCount(void)
 
 	if(nWinVersion >= WIN_VERSION_8)
 	{
-		LONG_PTR lp = *EV_TASK_SW_MULTI_TASK_LIST_REF;
+		LONG_PTR lp = *EV_TASK_SW_MULTI_TASK_LIST_REF();
 
 		nSecondaryTaskbarsCount = *(int *)(lp + DO2_3264(0x14, 0x28, 0, 0 /* omitted from public code */));
 	}
@@ -1811,7 +1883,7 @@ LONG_PTR SecondaryTaskListGetFirstLongPtr(SECONDARY_TASK_LIST_GET *p_secondary_t
 
 	if(nWinVersion >= WIN_VERSION_8)
 	{
-		lp = *EV_TASK_SW_MULTI_TASK_LIST_REF;
+		lp = *EV_TASK_SW_MULTI_TASK_LIST_REF();
 
 		nSecondaryTaskbarsCount = *(int *)(lp + DO2_3264(0x14, 0x28, 0, 0 /* omitted from public code */));
 		if(nSecondaryTaskbarsCount > 0)
@@ -1854,7 +1926,7 @@ BOOL WillExtendedUIGlom(LONG_PTR lpMMTaskListLongPtr, LONG_PTR *button_group)
 	int button_group_type;
 	DWORD dwTaskbarPrefs;
 
-	button_group_type = (int)button_group[DO2(6, 8)];
+	button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
 	if(button_group_type == 3)
 		return TRUE;
 
@@ -1871,8 +1943,8 @@ BOOL WillExtendedUIGlom(LONG_PTR lpMMTaskListLongPtr, LONG_PTR *button_group)
 		this_ptr = (LONG_PTR)button_group;
 		plp = *(LONG_PTR **)this_ptr;
 
-		// CTaskBtnGroup::GetNumStacks
-		ret = ((int(__stdcall *)(LONG_PTR))plp[DO2(41, 0 /* omitted from public code */)])(this_ptr);
+		// CTaskBtnGroup::GetNumStacks(this)
+		ret = FUNC_CTaskBtnGroup_GetNumStacks(plp)(this_ptr);
 		if(ret > 1)
 			return TRUE;
 
@@ -1885,13 +1957,13 @@ BOOL WillExtendedUIGlom(LONG_PTR lpMMTaskListLongPtr, LONG_PTR *button_group)
 		LONG_PTR *plp;
 		int a, b, ret;
 
-		task_group = (LONG_PTR *)button_group[DO2(3, 4)];
+		task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
 
 		this_ptr = (LONG_PTR)task_group;
 		plp = *(LONG_PTR **)this_ptr;
 
-		// CTaskGroup::GetNumTabs
-		ret = ((int(__stdcall *)(LONG_PTR, int *, int *))plp[10])(this_ptr, &a, &b);
+		// CTaskGroup::GetNumTabs(this, a, b)
+		ret = FUNC_CTaskGroup_GetNumTabs(plp)(this_ptr, &a, &b);
 		if(ret >= 0)
 		{
 			if(b > 1)
@@ -1941,13 +2013,13 @@ HWND GetTaskItemWnd(LONG_PTR *task_item)
 	this_ptr = (LONG_PTR)task_item;
 	plp = *(LONG_PTR **)this_ptr;
 
-	// CTaskItem::GetWindow(this)
-	return ((HWND(__stdcall *)(LONG_PTR))plp[DO2(19, 0 /* omitted from public code */)])(this_ptr);
+	// CWindowTaskItem::GetWindow(this)
+	return FUNC_CWindowTaskItem_GetWindow(plp)(this_ptr);
 }
 
 HWND GetButtonWnd(LONG_PTR *button)
 {
-	return GetTaskItemWnd((LONG_PTR *)button[DO2(3, 4)]);
+	return GetTaskItemWnd((LONG_PTR *)button[DO2(3, 0 /* omitted from public code */)]);
 }
 
 void OpenThumbnailPreview(LONG_PTR lpMMTaskListLongPtr)
@@ -1968,7 +2040,7 @@ void CreateNewInstance(LONG_PTR lpMMTaskListLongPtr, LONG_PTR *button_group)
 	LONG_PTR *plp;
 
 	hMMTaskListWnd = *EV_MM_TASKLIST_HWND(lpMMTaskListLongPtr);
-	task_group = (LONG_PTR *)button_group[DO2(3, 4)];
+	task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
 
 	if(nWinVersion <= WIN_VERSION_7)
 	{
@@ -1976,7 +2048,7 @@ void CreateNewInstance(LONG_PTR lpMMTaskListLongPtr, LONG_PTR *button_group)
 		plp = *(LONG_PTR **)this_ptr;
 
 		// CTaskBand::Launch(this, task_group)
-		((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *))plp[10])(this_ptr, task_group);
+		FUNC_CTaskBand_Launch_w7(plp)(this_ptr, task_group);
 	}
 	else
 	{
@@ -1986,8 +2058,8 @@ void CreateNewInstance(LONG_PTR lpMMTaskListLongPtr, LONG_PTR *button_group)
 		this_ptr = (LONG_PTR)button_group;
 		plp = *(LONG_PTR **)this_ptr;
 
-		// CTaskBtnGroup::GetLocation(this, unknown, p_rect)
-		((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR, RECT *))plp[DO2(13, 0 /* omitted from public code */)])(this_ptr, 0, &rc);
+		// CTaskBtnGroup::GetLocation(this, task_item, p_rect)
+		FUNC_CTaskBtnGroup_GetLocation(plp)(this_ptr, NULL, &rc);
 
 		pt.x = rc.left;
 		pt.y = rc.top;
@@ -1998,17 +2070,17 @@ void CreateNewInstance(LONG_PTR lpMMTaskListLongPtr, LONG_PTR *button_group)
 		plp = *(LONG_PTR **)this_ptr;
 
 		// CTaskBand::Launch(this, task_group, p_point, run_as_admin)
-		((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, POINT *, BYTE))plp[DO2(8, 0 /* omitted from public code */)])(this_ptr, task_group, &pt, 0);
+		FUNC_CTaskBand_Launch(plp)(this_ptr, task_group, &pt, 0);
 	}
 
 	this_ptr = (LONG_PTR)(lpMMTaskListLongPtr + DEF3264(0x1C, 0x38));
 	plp = *(LONG_PTR **)this_ptr;
 
 	// CTaskListWnd::StartAnimation(this, button_group, animation_id)
-	((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, LONG_PTR))plp[5])(this_ptr, button_group, 4);
+	FUNC_CTaskListWnd_StartAnimation(plp)(this_ptr, button_group, 4);
 }
 
-void DismissHoverUI(LONG_PTR lpMMTaskListLongPtr, BOOL bHideImmediately)
+void DismissHoverUI(LONG_PTR lpMMTaskListLongPtr, BOOL bHideWithoutAnimation)
 {
 	LONG_PTR this_ptr;
 	LONG_PTR *plp;
@@ -2016,8 +2088,8 @@ void DismissHoverUI(LONG_PTR lpMMTaskListLongPtr, BOOL bHideImmediately)
 	this_ptr = (LONG_PTR)(lpMMTaskListLongPtr + DEF3264(0x14, 0x28));
 	plp = *(LONG_PTR **)this_ptr;
 
-	// CTaskListWnd::DismissHoverUI(this, button_group, animation_id)
-	((LONG_PTR(__stdcall *)(LONG_PTR, BOOL))plp[DO2(27, 0 /* omitted from public code */)])(this_ptr, bHideImmediately);
+	// CTaskListWnd::DismissHoverUI(this, hide_without_animation)
+	FUNC_CTaskListWnd_DismissHoverUI(plp)(this_ptr, bHideWithoutAnimation);
 }
 
 int GetTaskbarMinWidth(void)
@@ -2026,11 +2098,11 @@ int GetTaskbarMinWidth(void)
 	{
 		int nWidth = 2 * (GetSystemMetrics(SM_CXBORDER) + GetSystemMetrics(SM_CXDLGFRAME));
 
-		switch(*EV_TASKBAR_POS)
+		switch(*EV_TASKBAR_POS())
 		{
 		case 0: // Is taskbar on left of the screen
 		case 2: // Is taskbar on right of the screen
-			nWidth += *EV_TASKBAR_W7_WIDTH_PADDING;
+			nWidth += *EV_TASKBAR_W7_WIDTH_PADDING();
 			break;
 		}
 
@@ -2056,11 +2128,11 @@ int GetTaskbarMinHeight(void)
 	{
 		int nHeight = 2 * (GetSystemMetrics(SM_CYBORDER) + GetSystemMetrics(SM_CYDLGFRAME));
 
-		switch(*EV_TASKBAR_POS)
+		switch(*EV_TASKBAR_POS())
 		{
 		case 1: // Is taskbar on top of the screen
 		case 3: // Is taskbar on bottom of the screen
-			nHeight += *EV_TASKBAR_W7_HEIGHT_PADDING;
+			nHeight += *EV_TASKBAR_W7_HEIGHT_PADDING();
 			break;
 		}
 
@@ -2126,7 +2198,7 @@ void EnableTaskbarBlurBehindWindow(BOOL bEnable)
 
 void ButtonGroupExecMenuCommand(LONG_PTR *button_group, WPARAM wCommand)
 {
-	LONG_PTR *task_group = (LONG_PTR *)button_group[DO2(3, 4)];
+	LONG_PTR *task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
 
 	LONG_PTR this_ptr = (LONG_PTR)task_group;
 	LONG_PTR *plp = *(LONG_PTR **)this_ptr;
@@ -2137,7 +2209,7 @@ void ButtonGroupExecMenuCommand(LONG_PTR *button_group, WPARAM wCommand)
 		LONG_PTR lpTaskItemFilterLongPtr = *EV_MM_TASKLIST_TASK_ITEM_FILTER(lpMMTaskListLongPtr);
 
 		// CTaskGroup::GroupMenuCommand(this, ITaskItemFilter, wCommand)
-		((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR, WPARAM))plp[DO2(0, 0 /* omitted from public code */)])(this_ptr, lpTaskItemFilterLongPtr, wCommand);
+		FUNC_CTaskGroup_GroupMenuCommand(plp)(this_ptr, lpTaskItemFilterLongPtr, wCommand);
 	}
 	else if(nWinVersion >= WIN_VERSION_8)
 	{
@@ -2156,12 +2228,12 @@ void ButtonGroupExecMenuCommand(LONG_PTR *button_group, WPARAM wCommand)
 		}
 
 		// CTaskGroup::GroupMenuCommand(this, hMonitor, wCommand)
-		((LONG_PTR(__stdcall *)(LONG_PTR, HMONITOR, WPARAM))plp[30])(this_ptr, hMonitor, wCommand);
+		FUNC_CTaskGroup_GroupMenuCommand_w8(plp)(this_ptr, hMonitor, wCommand);
 	}
 	else // WIN_VERSION_7
 	{
 		// CTaskGroup::GroupMenuCommand(this, wCommand)
-		((LONG_PTR(__stdcall *)(LONG_PTR, WPARAM))plp[30])(this_ptr, wCommand);
+		FUNC_CTaskGroup_GroupMenuCommand_w7(plp)(this_ptr, wCommand);
 	}
 }
 
@@ -2223,7 +2295,7 @@ int IdentifyTaskbarWindow(HWND hWnd)
 	if(hWnd == hTaskBandWnd)
 		return TASKBAR_WINDOW_TASKBAND;
 
-	HWND hTrayNotifyWnd = *EV_TASKBAR_TRAY_NOTIFY_WND;
+	HWND hTrayNotifyWnd = *EV_TASKBAR_TRAY_NOTIFY_WND();
 
 	if(hWnd == hTrayNotifyWnd || IsChild(hTrayNotifyWnd, hWnd))
 		return TASKBAR_WINDOW_NOTIFY;
@@ -2374,7 +2446,7 @@ void Win10ShowStartMenu(LONG_PTR lpMMTaskbarLongPtr)
 	LONG_PTR lp;
 	if(lpMMTaskbarLongPtr == lpTaskbarLongPtr)
 	{
-		lp = *EV_TASKBAR_START_BTN_LONG_PTR;
+		lp = *EV_TASKBAR_START_BTN_LONG_PTR();
 	}
 	else
 	{
@@ -2392,7 +2464,7 @@ void Win10ShowWinXPowerMenu(LONG_PTR lpMMTaskbarLongPtr)
 	LONG_PTR lp;
 	if(lpMMTaskbarLongPtr == lpTaskbarLongPtr)
 	{
-		lp = *EV_TASKBAR_START_BTN_LONG_PTR;
+		lp = *EV_TASKBAR_START_BTN_LONG_PTR();
 	}
 	else
 	{

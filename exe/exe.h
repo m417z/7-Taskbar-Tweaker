@@ -11,6 +11,7 @@
 #define UWM_EXITBLOCKACQUIRE            (WM_APP+5)
 #define UWM_EXITBLOCKRELEASE            (WM_APP+6)
 #define UWM_ADVANCED_OPTS_DLG           (WM_APP+7)
+#define UWM_EJECTED_FROM_EXPLORER       (WM_APP+8)
 
 #define SYSTEM_MENU_ADVANCED            40001
 
@@ -35,11 +36,11 @@ typedef struct _dlg_param {
 	HWND hAdvancedOptionsWnd;
 
 	// Initializing errors
-	DWORD dwInitErrors[3];
+	DWORD dwInitErrors[2];
 	int nInitErrorsCount;
 
 	// Injection error
-	BOOL bInjectFailed;
+	UINT uInjectionErrorID;
 
 	// Settings
 	BOOL bHideWnd;
@@ -65,9 +66,11 @@ LRESULT OnInitDialog(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PAR
 LRESULT OnNcHitTest(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM *pDlgParam);
 LRESULT OnCtlColorDlg(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM *pDlgParam);
 LRESULT OnCtlColorStatic(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM *pDlgParam);
+LRESULT OnDpiChanged(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM *pDlgParam);
 LRESULT OnUNotifyIcon(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM *pDlgParam);
 LRESULT OnUSettingsDlg(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM *pDlgParam);
 LRESULT OnUAdvancedOptsDlg(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM *pDlgParam);
+LRESULT OnUEjectedFromExplorer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM *pDlgParam);
 LRESULT OnCopyData(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM *pDlgParam);
 LRESULT OnCommand(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM *pDlgParam);
 LRESULT OnSysCommand(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM *pDlgParam);
@@ -91,6 +94,7 @@ HMENU MakeTrayRightClickMenu(BOOL bUpdateAvailable);
 BOOL ShowHelp(HWND hWnd);
 BOOL ShowHelpOfLang(HWND hWnd, LANGID langid);
 void AboutMsgBox(HWND hWnd);
+void InjectionErrorMsgBox(HWND hWnd, UINT uErrorID);
 HRESULT CALLBACK AboutMsgTaskDialogCallbackProc(HWND hWnd, UINT uNotification, WPARAM wParam, LPARAM lParam, LONG_PTR dwRefData);
 BOOL ApplyLanguage(LANGID new_language_id);
 LRESULT SendOptionsMessage(HWND hWnd, HWND hSenderWnd, int pOptions[OPTS_COUNT]);

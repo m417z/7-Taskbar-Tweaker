@@ -14,8 +14,6 @@
 #define GET_Y_LPARAM(lParam)	 ((int)(short)HIWORD(lParam))
 #endif
 
-#define RSRC_STRING_W_PARAM(string_id, extra_param) ((DWORD)(((DWORD)(((DWORD_PTR)(string_id)) & 0x000FFFFF)) | ((DWORD)((DWORD)(((DWORD_PTR)(extra_param)) & 0x00000FFF))) << 4*5))
-
 BOOL CompareWindowsVersion(DWORD dwMajorVersion, DWORD dwMinorVersion);
 BOOL CompareWindowsBuildNumber(DWORD dwBuildNumber);
 BOOL RegisterDialogClass(LPCTSTR lpszClassName, HINSTANCE hInstance);

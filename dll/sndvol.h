@@ -1,5 +1,8 @@
 #pragma once
 
+void SndVolInit();
+void SndVolUninit();
+
 BOOL OpenScrollSndVol(WPARAM wParam, LPARAM lMousePosParam);
 BOOL IsSndVolOpen();
 BOOL ScrollSndVol(WPARAM wParam, LPARAM lMousePosParam);
@@ -18,6 +21,7 @@ void OnSndVolTooltipTimer();
 
 // Other functions
 BOOL GetSndVolTrayIconRect(RECT *prc);
+BOOL IsDefaultAudioEndpointAvailable();
 BOOL IsVolMuted(BOOL *pbMuted);
 BOOL IsVolMutedAndNotZero(BOOL *pbResult);
 BOOL ToggleVolMuted();

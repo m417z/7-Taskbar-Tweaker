@@ -61,80 +61,84 @@ DWORD WINAPI WaitThread(LPVOID lpParameter)
 // Exported
 DWORD __stdcall Init(INJECT_INIT_STRUCT *p_inject_init_struct)
 {
-	static volatile BOOL bInitCalled = FALSE;
+	static volatile LONG nInitCalled = 0;
 	DWORD dwError;
 
 	// Make sure this function is called only once
-	if(InterlockedExchange((long *)&bInitCalled, TRUE))
+	if(InterlockedExchange(&nInitCalled, 1))
 		return LIB_ERR_INIT_ALREADY_CALLED;
 
 	// Check tweaker version
 	if(p_inject_init_struct->dwVersion != VER_FILE_VERSION_LONG)
 		return LIB_ERR_LIB_VER_MISMATCH;
 
-	// Check OS version
+	// Check explorer version
 	nWinVersion = WIN_VERSION_UNSUPPORTED;
 
 	VS_FIXEDFILEINFO *pFixedFileInfo = GetModuleVersionInfo(NULL, NULL);
-	if(pFixedFileInfo)
+	if(!pFixedFileInfo)
+		return LIB_ERR_WIN_VER_MISMATCH;
+
+	WORD nMajor = HIWORD(pFixedFileInfo->dwFileVersionMS);
+	WORD nMinor = LOWORD(pFixedFileInfo->dwFileVersionMS);
+	WORD nBuild = HIWORD(pFixedFileInfo->dwFileVersionLS);
+	WORD nQFE = LOWORD(pFixedFileInfo->dwFileVersionLS);
+
+	switch(nMajor)
 	{
-		// HIWORD(pFixedFileInfo->dwFileVersionMS); // Major version
-		// LOWORD(pFixedFileInfo->dwFileVersionMS); // Minor version
-		// HIWORD(pFixedFileInfo->dwFileVersionLS); // Build number
-		// LOWORD(pFixedFileInfo->dwFileVersionLS); // QFE
-
-		switch(HIWORD(pFixedFileInfo->dwFileVersionMS)) // Major version
+	case 6:
+		switch(nMinor)
 		{
-		case 6:
-			switch(LOWORD(pFixedFileInfo->dwFileVersionMS)) // Minor version
-			{
-			case 1:
-				nWinVersion = WIN_VERSION_7;
-				break;
-
-			case 2:
-				nWinVersion = WIN_VERSION_8;
-				break;
-
-			case 3:
-				if(LOWORD(pFixedFileInfo->dwFileVersionLS) < 17000) // QFE
-					nWinVersion = WIN_VERSION_81;
-				else
-					nWinVersion = WIN_VERSION_811;
-				break;
-
-			case 4:
-				nWinVersion = WIN_VERSION_10_T1;
-				break;
-			}
+		case 1:
+			nWinVersion = WIN_VERSION_7;
 			break;
 
-		case 10:
-			if(HIWORD(pFixedFileInfo->dwFileVersionLS) <= 10240) // Build number
-				nWinVersion = WIN_VERSION_10_T1;
-			else if(HIWORD(pFixedFileInfo->dwFileVersionLS) <= 10586)
-				nWinVersion = WIN_VERSION_10_T2;
-			else if(HIWORD(pFixedFileInfo->dwFileVersionLS) <= 14393)
-				nWinVersion = WIN_VERSION_10_R1;
-			else if(HIWORD(pFixedFileInfo->dwFileVersionLS) <= 15063)
-				nWinVersion = WIN_VERSION_10_R2;
-			else if(HIWORD(pFixedFileInfo->dwFileVersionLS) <= 16299)
-				nWinVersion = WIN_VERSION_10_R3;
-			else if(HIWORD(pFixedFileInfo->dwFileVersionLS) <= 17134)
-				nWinVersion = WIN_VERSION_10_R4;
-			else if(HIWORD(pFixedFileInfo->dwFileVersionLS) <= 17763)
-				nWinVersion = WIN_VERSION_10_R5;
+		case 2:
+			nWinVersion = WIN_VERSION_8;
+			break;
+
+		case 3:
+			if(nQFE < 17000)
+				nWinVersion = WIN_VERSION_81;
 			else
-				nWinVersion = WIN_VERSION_10_19H1;
+				nWinVersion = WIN_VERSION_811;
+			break;
+
+		case 4:
+			nWinVersion = WIN_VERSION_10_T1;
 			break;
 		}
+		break;
+
+	case 10:
+		if(nBuild <= 10240)
+			nWinVersion = WIN_VERSION_10_T1;
+		else if(nBuild <= 10586)
+			nWinVersion = WIN_VERSION_10_T2;
+		else if(nBuild <= 14393)
+			nWinVersion = WIN_VERSION_10_R1;
+		else if(nBuild <= 15063)
+			nWinVersion = WIN_VERSION_10_R2;
+		else if(nBuild <= 16299)
+			nWinVersion = WIN_VERSION_10_R3;
+		else if(nBuild <= 17134)
+			nWinVersion = WIN_VERSION_10_R4;
+		else if(nBuild <= 17763)
+			nWinVersion = WIN_VERSION_10_R5;
+		else if(nBuild <= 18362)
+			nWinVersion = WIN_VERSION_10_19H1;
+		else //if(nBuild <= 19041)
+			nWinVersion = WIN_VERSION_10_20H1;
+		/*else
+			nWinVersion = WIN_VERSION_10_NEXT;*/
+		break;
 	}
 
 	if(nWinVersion == WIN_VERSION_UNSUPPORTED)
 		return LIB_ERR_WIN_VER_MISMATCH;
 
-	nExplorerBuild = HIWORD(pFixedFileInfo->dwFileVersionLS);
-	nExplorerQFE = LOWORD(pFixedFileInfo->dwFileVersionLS);
+	nExplorerBuild = nBuild;
+	nExplorerQFE = nQFE;
 
 	// Set some globals
 	language_id = p_inject_init_struct->lang;

@@ -8,7 +8,7 @@ extern WCHAR szIniFile[MAX_PATH];
 
 void ShowSettings(HWND hParentWnd, UINT uSettingUpdMsg)
 {
-	DialogBoxParam(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SETTINGS), hParentWnd, 
+	DialogBoxParam(GetModuleHandle(NULL), MAKEINTRESOURCE(IDD_SETTINGS), hParentWnd,
 		(DLGPROC)DlgSettingsProc, (LPARAM)uSettingUpdMsg);
 }
 
@@ -78,7 +78,7 @@ static LRESULT CALLBACK DlgSettingsProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 			case BST_UNCHECKED:
 				if(*szIniFile != L'\0')
 				{
-					if(MessageBox(hWnd, LoadStrFromRsrc(IDS_SETT_WARN_PORT), 
+					if(MessageBox(hWnd, LoadStrFromRsrc(IDS_SETT_WARN_PORT),
 						LoadStrFromRsrc(IDS_SETT_WARN_PORT_CAPT), MB_ICONEXCLAMATION | MB_YESNO) != IDYES)
 					{
 						break;
@@ -173,7 +173,7 @@ static BOOL GetStartupPath(WCHAR pStartupPath[MAX_PATH])
 	UINT nStringLength;
 	LSTATUS error;
 
-	error = RegOpenKeyEx(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 
+	error = RegOpenKeyEx(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
 		0, KEY_QUERY_VALUE, &hKey);
 	if(error == ERROR_SUCCESS)
 	{
@@ -254,7 +254,7 @@ static BOOL SetStartupPath(WCHAR pStartupPath[MAX_PATH])
 	HKEY hKey;
 	LSTATUS error;
 
-	error = RegOpenKeyEx(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", 
+	error = RegOpenKeyEx(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
 		0, KEY_SET_VALUE, &hKey);
 	if(error == ERROR_SUCCESS)
 	{
@@ -288,7 +288,7 @@ static void LoadResLanguages(HWND hWnd)
 
 	hComboBoxWnd = GetDlgItem(hWnd, IDC_LANG);
 
-	EnumResourceLanguages(NULL, RT_STRING, 
+	EnumResourceLanguages(NULL, RT_STRING,
 		MAKEINTRESOURCE(IDS_LANGUAGE/16+1), EnumResLangProc, (LPARAM)hComboBoxWnd);
 
 	wIDLanguage = MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);

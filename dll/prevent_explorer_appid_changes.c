@@ -60,7 +60,7 @@ static HRESULT STDMETHODCALLTYPE PropertyStoreSetValueHook(IPropertyStore *This,
 		(
 			(ULONG_PTR)pRetAddr >= (ULONG_PTR)ExplorerFrameInfo.lpBaseOfDll &&
 			(ULONG_PTR)pRetAddr < (ULONG_PTR)ExplorerFrameInfo.lpBaseOfDll + ExplorerFrameInfo.SizeOfImage
-		) || 
+		) ||
 		(
 			(ULONG_PTR)pRetAddr >= (ULONG_PTR)Shell32Info.lpBaseOfDll &&
 			(ULONG_PTR)pRetAddr < (ULONG_PTR)Shell32Info.lpBaseOfDll + Shell32Info.SizeOfImage

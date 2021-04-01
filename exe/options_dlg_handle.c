@@ -28,7 +28,7 @@ void InitDlg(HWND hWnd, int pOptions[OPTS_COUNT])
 		nCtrlId = GetDlgCtrlID(hCtrlWnd);
 		GetClassName(hCtrlWnd, szClassName, 16);
 
-		if(CompareString(LOCALE_INVARIANT, NORM_IGNORECASE, 
+		if(CompareString(LOCALE_INVARIANT, NORM_IGNORECASE,
 			szClassName, -1, TEXT("BUTTON"), -1) == CSTR_EQUAL)
 		{
 			dwStyle = GetWindowLong(hCtrlWnd, GWL_STYLE);
@@ -38,7 +38,7 @@ void InitDlg(HWND hWnd, int pOptions[OPTS_COUNT])
 			case BS_GROUPBOX:
 				GetWindowRect(hCtrlWnd, &rc);
 
-				if(rc.left == rcSectionGroupbox.left && rc.right <= rcSectionGroupbox.right && 
+				if(rc.left == rcSectionGroupbox.left && rc.right <= rcSectionGroupbox.right &&
 					rc.top >= rcSectionGroupbox.top && rc.bottom <= rcSectionGroupbox.bottom)
 				{
 					rc.right = rcSectionGroupbox.right;
@@ -83,7 +83,7 @@ void InitDlg(HWND hWnd, int pOptions[OPTS_COUNT])
 				break;
 			}
 		}
-		else if(CompareString(LOCALE_INVARIANT, NORM_IGNORECASE, 
+		else if(CompareString(LOCALE_INVARIANT, NORM_IGNORECASE,
 			szClassName, -1, TEXT("COMBOBOX"), -1) == CSTR_EQUAL)
 		{
 			nOption++;
@@ -226,4 +226,16 @@ BOOL OptionsUpdFromDlg(HWND hWnd, int nCtrlId, int nNotificationCode, int pOptio
 	}
 
 	return TRUE;
+}
+
+void EnableOptions(HWND hWnd, BOOL bEnable)
+{
+	for(int i = IDC___OPTION_FIRST___; i <= IDC___OPTION_LAST___; i++)
+	{
+		HWND hOptionWnd = GetDlgItem(hWnd, i);
+		EnableWindow(hOptionWnd, bEnable);
+	}
+
+	HWND hInspectorWnd = GetDlgItem(hWnd, IDC_INSPECTOR);
+	EnableWindow(hInspectorWnd, bEnable);
 }

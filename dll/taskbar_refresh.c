@@ -3,11 +3,14 @@
 #include "explorer_vars.h"
 #include "functions.h"
 #include "taskbar_inspector.h"
+#include "com_func_hook.h"
 
 typedef struct _refresh_hardcore_item {
 	LONG_PTR lpMMTaskListLongPtr;
 	LONG_PTR *button_group;
 	HWND hButtonWnd;
+	BOOL bIsImmersive; // Windows 10
+	LONG_PTR lpImmersiveApp; // Windows 10
 } REFRESH_HARDCORE_ITEM;
 
 typedef struct _refresh_hardcore_param {
@@ -99,10 +102,6 @@ BOOL RefreshTaskbarHardcore()
 
 static BOOL RefreshTaskbarHardcore_Begin()
 {
-	REFRESH_HARDCORE_ITEM *p_refresh_items;
-	HWND hWnd;
-	int i;
-
 	gp_refresh_param = PopulateRefreshHardcoreParam();
 	if(!gp_refresh_param)
 	{
@@ -114,18 +113,39 @@ static BOOL RefreshTaskbarHardcore_Begin()
 
 	InspectorBeforeTaskbarRefresh();
 
-	p_refresh_items = gp_refresh_param->refresh_items;
+	REFRESH_HARDCORE_ITEM *p_refresh_items = gp_refresh_param->refresh_items;
 
 	// Hide in reverse order, attempts to fix an issue with pinned item reordering.
 	// Example: re-enabling grouping, before:
 	// [notepad] [pinned explorer] [explorer]
 	// after:
 	// [pinned explorer group] [notepad]
-	for(i = gp_refresh_param->item_count - 1; i >= 0; i--)
+	for(int i = gp_refresh_param->item_count - 1; i >= 0; i--)
 	{
-		hWnd = p_refresh_items[i].hButtonWnd;
+		HWND hWnd = p_refresh_items[i].hButtonWnd;
 		if(hWnd)
-			SendMessage(hTaskSwWnd, gp_refresh_param->uShellHookMsg, HSHELL_WINDOWDESTROYED, (LPARAM)hWnd);
+		{
+			if(p_refresh_items[i].bIsImmersive)
+			{
+				BOOL bOldShellManagedWindowAsNormalWindow = GetProp(hWnd, L"Microsoft.Windows.ShellManagedWindowAsNormalWindow") != NULL;
+
+				ComFuncSetTaskItemGetWindowReturnNull(TRUE);
+				SetProp(hWnd, L"Microsoft.Windows.ShellManagedWindowAsNormalWindow", (HANDLE)1);
+
+				// CTaskBand::_HandleOtherWindowDestroyed
+				SendMessage(hTaskSwWnd, 0x444, (WPARAM)hWnd, 0);
+
+				p_refresh_items[i].lpImmersiveApp = ComFuncGetSavedTaskItemGetWindow();
+
+				ComFuncSetTaskItemGetWindowReturnNull(FALSE);
+				if(!bOldShellManagedWindowAsNormalWindow)
+					RemoveProp(hWnd, L"Microsoft.Windows.ShellManagedWindowAsNormalWindow");
+			}
+			else
+			{
+				SendMessage(hTaskSwWnd, gp_refresh_param->uShellHookMsg, HSHELL_WINDOWDESTROYED, (LPARAM)hWnd);
+			}
+		}
 	}
 
 	ShowWindow(hSyncWnd, SW_SHOWNA);
@@ -263,6 +283,19 @@ static int TaskListItemPopulate(LONG_PTR lpMMTaskListLongPtr, REFRESH_HARDCORE_I
 				p_refresh_items->button_group = button_groups[i];
 				p_refresh_items->hButtonWnd = GetButtonWnd(buttons[j]);
 
+				if(nWinVersion >= WIN_VERSION_10_T1)
+				{
+					LONG_PTR *task_item = (LONG_PTR*)buttons[j][DO2(3, 4)];
+
+					LONG_PTR this_ptr = (LONG_PTR)task_item;
+					LONG_PTR *plp = *(LONG_PTR **)this_ptr;
+
+					// CWindowTaskItem::IsImmersive(this)
+					p_refresh_items->bIsImmersive = FUNC_CWindowTaskItem_IsImmersive(plp)(this_ptr) != 0;
+				}
+				else
+					p_refresh_items->bIsImmersive = FALSE;
+
 				p_refresh_items++;
 				populated++;
 			}
@@ -311,7 +344,18 @@ static void SyncWndCreated()
 		}
 
 		hWnd = p_refresh_items[i].hButtonWnd;
-		if(hWnd)
+		if(!hWnd)
+			continue;
+
+		if(p_refresh_items[i].bIsImmersive && p_refresh_items[i].lpImmersiveApp)
+		{
+			LONG_PTR this_ptr = (LONG_PTR)(lpTaskSwLongPtr + DEF3264(0x30, 0x60));
+			plp = *(LONG_PTR **)this_ptr;
+
+			// CTaskBand::ApplicationChanged(this, immersive_application, probably_flags, hwnd_unused)
+			FUNC_CTaskBand_ApplicationChanged(plp)(this_ptr, p_refresh_items[i].lpImmersiveApp, 0x02, hWnd);
+		}
+		else
 		{
 			// Fixes SevenDex Dexpot feature
 			lpWndLong = GetWindowLongPtr(hWnd, GWL_EXSTYLE);
@@ -319,13 +363,13 @@ static void SyncWndCreated()
 				SetWindowLongPtr(hWnd, GWL_EXSTYLE, lpWndLong & ~WS_EX_TOOLWINDOW);
 
 			SendMessage(hTaskSwWnd, gp_refresh_param->uShellHookMsg, HSHELL_WINDOWCREATED, (LPARAM)hWnd);
-
-			gp_refresh_param->i++;
-			if(gp_refresh_param->i < gp_refresh_param->item_count)
-				ShowWindow(hSyncWnd, SW_SHOWNA);
-
-			break;
 		}
+
+		gp_refresh_param->i++;
+		if(gp_refresh_param->i < gp_refresh_param->item_count)
+			ShowWindow(hSyncWnd, SW_SHOWNA);
+
+		break;
 	}
 }
 

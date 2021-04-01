@@ -5,280 +5,374 @@
 //////////////////////////////////////////////////////////////////////////
 // CTray (lpTaskbarLongPtr)
 
-// In Windows 8.1 Update 1, since build 17930, a new virtual table pointer appeared.
-// The change was caused by update KB3072318.
-// In Windows 10 R4, since 10.0.17763.677 (after 10.0.17763.165, not including), some field(s) were removed.
-// The change was caused by update KB4489894.
-// In Windows 10 R5, since 10.0.17763.346 (after 10.0.17763.107, not including), some field(s) were removed.
-// The change was caused by update KB4482887.
-#define EV_TASKBAR_OFFSET_FIX(offset)       ((offset) + \
-                                                      ((nWinVersion == WIN_VERSION_811 && nExplorerQFE >= 17930 && nExplorerQFE < 20000 && (offset) >= 8 * sizeof(LONG_PTR)) ? sizeof(LONG_PTR) : \
-                                                      ((((nWinVersion == WIN_VERSION_10_R4 && nExplorerQFE >= 677) || (nWinVersion == WIN_VERSION_10_R5 && nExplorerQFE >= 346)) \
-                                                          && (offset) >= DEF3264(0x8C, 0xD0)) ? (-(int)sizeof(LONG_PTR)) : 0)))
-#define EV_TRAY_UI_OFFSET_FIX(offset)       ((nWinVersion < WIN_VERSION_10_R2) ? EV_TASKBAR_OFFSET_FIX(offset) : (offset))
-
-// Pointer to the TrayUI instance, since Windows 10 R2.
-#define EV_TRAY_UI(lp)                      DO2_3264((lp), (lp), 0, 0 /* omitted from public code */)
-
-// Until Windows 10
-#define EV_TASKBAR_AUTOPOS_FLAG            ((BOOL *)(lpTaskbarLongPtr + EV_TASKBAR_OFFSET_FIX( \
-                                                     DO2_3264(0x24, 0x3C, 0, 0 /* omitted from public code */))))
-// Since Windows 10
-#define EV_TASKBAR_AUTOPOS_FLAG_BYTE       ((BYTE *)(EV_TRAY_UI(lpTaskbarLongPtr) + EV_TRAY_UI_OFFSET_FIX( \
-                                                     0 /* omitted from public code */)))
-
-// Bit 0x01 - autohide is on, bit 0x02 - taskbar is hidden.
-#define EV_TASKBAR_SETTINGS               ((DWORD *)(EV_TRAY_UI(lpTaskbarLongPtr) + EV_TRAY_UI_OFFSET_FIX( \
-                                                     DO2_3264(0x40, 0x60, 0, 0 /* omitted from public code */))))
-
-#define EV_TASKBAR_TRAY_NOTIFY_WND         ((HWND *)(EV_TRAY_UI(lpTaskbarLongPtr) + EV_TRAY_UI_OFFSET_FIX( \
-                                                     DO2_3264(0xC04, 0xD70, 0, 0 /* omitted from public code */))))
-
-#define EV_TASKBAR_TASKBAND_WND            ((HWND *)(EV_TRAY_UI(lpTaskbarLongPtr) + EV_TRAY_UI_OFFSET_FIX( \
-                                                     DO2_3264(0xCA8, 0xE58, 0, 0 /* omitted from public code */))))
-
-#define EV_TASKBAR_POS                      ((int *)(EV_TRAY_UI(lpTaskbarLongPtr) + EV_TRAY_UI_OFFSET_FIX( \
-                                                     DO2_3264(0xCD8, 0xEB0, 0, 0 /* omitted from public code */))))
-
-#define EV_TASKBAR_UNLOCKED_FLAG           ((BOOL *)(EV_TRAY_UI(lpTaskbarLongPtr) + EV_TRAY_UI_OFFSET_FIX( \
-                                                     DO2_3264(0xD28, 0xF24, 0, 0 /* omitted from public code */))))
-
-#define EV_TASKBAR_TOPMOST_EX_FLAG         ((BOOL *)(lpTaskbarLongPtr + EV_TASKBAR_OFFSET_FIX( \
-                                                     DO2_3264(0xD98, 0xFAC, 0, 0 /* omitted from public code */))))
-
-// Until Windows 10
-#define EV_TASKBAR_START_BTN_WND           ((HWND *)(lpTaskbarLongPtr + EV_TASKBAR_OFFSET_FIX( \
-                                                     DO2_3264(0xAF8 + 0x18, 0xC20 + 0x28, 0, 0 /* omitted from public code */))))
-
-// Since Windows 10
-#define EV_TASKBAR_START_BTN_LONG_PTR       ((LONG_PTR *)(EV_TRAY_UI(lpTaskbarLongPtr) + EV_TRAY_UI_OFFSET_FIX(0 /* omitted from public code */)))
-#define EV_TASKBAR_BACK_LONG_PTR            ((LONG_PTR *)(EV_TRAY_UI(lpTaskbarLongPtr) + EV_TRAY_UI_OFFSET_FIX(0 /* omitted from public code */)))
-#define EV_TASKBAR_SEARCH_LONG_PTR          ((LONG_PTR *)(EV_TRAY_UI(lpTaskbarLongPtr) + EV_TRAY_UI_OFFSET_FIX(0 /* omitted from public code */)))
-#define EV_TASKBAR_CORTANA_LONG_PTR         ((LONG_PTR *)(EV_TRAY_UI(lpTaskbarLongPtr) + EV_TRAY_UI_OFFSET_FIX(0 /* omitted from public code */)))
-#define EV_TASKBAR_EXTRA_BTN_HWNDS             ((HWND **)(EV_TRAY_UI(lpTaskbarLongPtr) + EV_TRAY_UI_OFFSET_FIX(0 /* omitted from public code */)))
-#define EV_TASKBAR_MULTITASKING_LONG_PTR    ((LONG_PTR *)(EV_TRAY_UI(lpTaskbarLongPtr) + EV_TRAY_UI_OFFSET_FIX(0 /* omitted from public code */)))
-
-#define EV_TASKBAR_W7_START_BTN_CLASS      ((void *)(lpTaskbarLongPtr + EV_TASKBAR_OFFSET_FIX(DEF3264(0xAF8, 0xC20))))
-
-#define EV_TASKBAR_W7_WIDTH_PADDING         ((int *)(lpTaskbarLongPtr + EV_TASKBAR_OFFSET_FIX(DEF3264(0xB18, 0xC58))))
-
-#define EV_TASKBAR_W7_HEIGHT_PADDING        ((int *)(lpTaskbarLongPtr + EV_TASKBAR_OFFSET_FIX(DEF3264(0xB1C, 0xC5C))))
+LONG_PTR EV_TRAY_UI(LONG_PTR lp);
+BOOL *EV_TASKBAR_AUTOPOS_FLAG(void);
+BYTE *EV_TASKBAR_AUTOPOS_FLAG_BYTE(void);
+DWORD *EV_TASKBAR_SETTINGS(void);
+HWND *EV_TASKBAR_TRAY_NOTIFY_WND(void);
+HWND *EV_TASKBAR_TASKBAND_WND(void);
+int *EV_TASKBAR_POS(void);
+BOOL *EV_TASKBAR_UNLOCKED_FLAG(void);
+BOOL *EV_TASKBAR_TOPMOST_EX_FLAG(void);
+HWND *EV_TASKBAR_START_BTN_WND(void);
+LONG_PTR *EV_TASKBAR_START_BTN_LONG_PTR(void);
+LONG_PTR *EV_TASKBAR_BACK_LONG_PTR(void);
+LONG_PTR *EV_TASKBAR_SEARCH_LONG_PTR(void);
+LONG_PTR *EV_TASKBAR_CORTANA_LONG_PTR(void);
+HWND **EV_TASKBAR_EXTRA_BTN_HWNDS(void);
+LONG_PTR *EV_TASKBAR_MULTITASKING_LONG_PTR(void);
+void *EV_TASKBAR_W7_START_BTN_CLASS(void);
+int *EV_TASKBAR_W7_WIDTH_PADDING(void);
+int *EV_TASKBAR_W7_HEIGHT_PADDING(void);
 
 //////////////////////////////////////////////////////////////////////////
 // CSecondaryTray (lpSecondaryTaskbarLongPtr)
 
-#define EV_SECONDARY_TASKBAR_HWND(lp)               ((HWND *)((lp) + DEF3264(0x04, 0x08)))
-
-#define EV_SECONDARY_TASKBAR_SECONDARY_TASKLIST_REF(lp) \
-                                                ((LONG_PTR *)((lp) + DO2_3264(0x34, 0x58, 0, 0 /* omitted from public code */)))
-#define EV_SECONDARY_TASKBAR_SECONDARY_TASKLIST_LONG_PTR_VALUE(lp) \
-                                                             (*EV_SECONDARY_TASKBAR_SECONDARY_TASKLIST_REF(lp) - DEF3264(0x14, 0x28))
-
-#define EV_SECONDARY_TASKBAR_POS(lp)                 ((int *)((lp) + DEF3264(0x10, 0x20) + DO2_3264(0x14, 0x18, 0, 0 /* omitted from public code */)))
-
-#define EV_SECONDARY_TASKBAR_MONITOR(lp)         (HMONITOR *)((lp) + DEF3264(0x10, 0x20) + DO2_3264(0x18, 0x20, 0, 0 /* omitted from public code */))
-
-// Until Windows 10
-#define EV_SECONDARY_TASKBAR_START_BTN_WND(lp)      ((HWND *)((lp) + DO2_3264(0xAC, 0xE0, 0, 0 /* omitted from public code */)))
-
-// Since Windows 10
-#define EV_SECONDARY_TASKBAR_START_BTN_LONG_PTR(lp)       ((LONG_PTR *)((lp) + 0 /* omitted from public code */))
-#define EV_SECONDARY_TASKBAR_SEARCH_LONG_PTR(lp)          ((LONG_PTR *)((lp) + 0 /* omitted from public code */))
-#define EV_SECONDARY_TASKBAR_CORTANA_LONG_PTR(lp)         ((LONG_PTR *)((lp) + 0 /* omitted from public code */))
-#define EV_SECONDARY_TASKBAR_MULTITASKING_LONG_PTR(lp)    ((LONG_PTR *)((lp) + 0 /* omitted from public code */))
-#define EV_SECONDARY_TASKBAR_CLOCK_LONG_PTR(lp)           ((LONG_PTR *)((lp) + 0 /* omitted from public code */))
+HWND *EV_SECONDARY_TASKBAR_HWND(LONG_PTR lp);
+LONG_PTR *EV_SECONDARY_TASKBAR_SECONDARY_TASKLIST_REF(LONG_PTR lp);
+LONG_PTR EV_SECONDARY_TASKBAR_SECONDARY_TASKLIST_LONG_PTR_VALUE(LONG_PTR lp);
+int *EV_SECONDARY_TASKBAR_POS(LONG_PTR lp);
+HMONITOR *EV_SECONDARY_TASKBAR_MONITOR(LONG_PTR lp);
+HWND *EV_SECONDARY_TASKBAR_START_BTN_WND(LONG_PTR lp);
+LONG_PTR *EV_SECONDARY_TASKBAR_START_BTN_LONG_PTR(LONG_PTR lp);
+LONG_PTR *EV_SECONDARY_TASKBAR_SEARCH_LONG_PTR(LONG_PTR lp);
+LONG_PTR *EV_SECONDARY_TASKBAR_CORTANA_LONG_PTR(LONG_PTR lp);
+LONG_PTR *EV_SECONDARY_TASKBAR_MULTITASKING_LONG_PTR(LONG_PTR lp);
+LONG_PTR *EV_SECONDARY_TASKBAR_CLOCK_LONG_PTR(LONG_PTR lp);
 
 //////////////////////////////////////////////////////////////////////////
 // CTaskBand (lpTaskSwLongPtr)
 
-#define EV_TASK_SW_PREFERENCES                    ((DWORD *)(lpTaskSwLongPtr + \
-                                                             DO2_3264(0x20, 0x40, 0, 0 /* omitted from public code */) + \
-                                                             DO2_3264(0x04, 0x08, 0, 0 /* omitted from public code */)))
-
-#define EV_TASK_SW_TASK_GROUPS_HDPA                ((HDPA *)(lpTaskSwLongPtr + \
-                                                             DO2_3264(0xA8, 0x120, 0, 0 /* omitted from public code */)))
-
-#define EV_TASK_SW_MULTI_TASK_LIST_REF         ((LONG_PTR *)(lpTaskSwLongPtr + \
-                                                             DO2_3264(0x8C, 0xF0, 0, 0 /* omitted from public code */)))
-
-#define EV_TASK_SW_SYS_FROSTED_WINDOW_MSG          ((UINT *)(lpTaskSwLongPtr + \
-                                                             DO2_3264(0x2C, 0x50, 0, 0 /* omitted from public code */)))
-
-#define EV_TASK_SW_APP_VIEW_MGR                ((LONG_PTR *)(lpTaskSwLongPtr + \
-                                                             0 /* omitted from public code */))
+DWORD *EV_TASK_SW_PREFERENCES(void);
+HDPA *EV_TASK_SW_TASK_GROUPS_HDPA(void);
+LONG_PTR *EV_TASK_SW_MULTI_TASK_LIST_REF(void);
+UINT *EV_TASK_SW_SYS_FROSTED_WINDOW_MSG(void);
+LONG_PTR *EV_TASK_SW_APP_VIEW_MGR(void);
 
 //////////////////////////////////////////////////////////////////////////
 // CSecondaryTaskBand (lpSecondaryTaskBandLongPtr)
 
-#define EV_SECONDARY_TASK_BAND_HWND(lp)                     ((HWND *)((lp) + DEF3264(0x04, 0x08)))
-
-#define EV_SECONDARY_TASK_BAND_PREFERENCES(lp)             ((DWORD *)((lp) + DEF3264(0x14, 0x28) + DEF3264(0x0C, 0x18)))
-
-#define EV_SECONDARY_TASK_BAND_SECONDARY_TASKBAR_REF(lp) \
-                                                        ((LONG_PTR *)((lp) + DEF3264(0x28, 0x50)))
-#define EV_SECONDARY_TASK_BAND_SECONDARY_TASKBAR_LONG_PTR_VALUE(lp)  (*EV_SECONDARY_TASK_BAND_SECONDARY_TASKBAR_REF(lp) - DEF3264(0x10, 0x20))
+HWND *EV_SECONDARY_TASK_BAND_HWND(LONG_PTR lp);
+DWORD *EV_SECONDARY_TASK_BAND_PREFERENCES(LONG_PTR lp);
+LONG_PTR *EV_SECONDARY_TASK_BAND_SECONDARY_TASKBAR_REF(LONG_PTR lp);
+LONG_PTR EV_SECONDARY_TASK_BAND_SECONDARY_TASKBAR_LONG_PTR_VALUE(LONG_PTR lp);
 
 //////////////////////////////////////////////////////////////////////////
 // CTaskListWnd (lpMMTaskListLongPtr)
 
-#define EV_MM_TASKLIST_HWND(lp)                             ((HWND *)((lp) + DEF3264(0x04, 0x08)))
-
-#define EV_MM_TASKLIST_TASK_BAND_REF(lp)                ((LONG_PTR *)((lp) + DO2_3264(0x38, 0x70, 0, 0 /* omitted from public code */)))
-//#define EV_MM_TASKLIST_TASK_BAND_LONG_PTR_VALUE(lp)                  (*EV_MM_TASKLIST_TASK_BAND_REF(lp) - DEF3264(0x28, 0x50))
-#define EV_MM_TASKLIST_SECONDARY_TASK_BAND_LONG_PTR_VALUE(lp)        (*EV_MM_TASKLIST_TASK_BAND_REF(lp) - DEF3264(0x14, 0x28))
-
-#define EV_MM_TASKLIST_BUTTON_GROUPS_HDPA(lp)               ((HDPA *)((lp) + DO2_3264(0x90, 0xE0, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_TASKLIST_TOOLTIP_WND(lp)                      ((HWND *)((lp) + DO2_3264(0x98, 0xF0, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_TASKLIST_THUMB_DISABLING_FLAG(lp)             ((BOOL *)((lp) + DO2_3264(0xA0, 0xFC, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_TASKLIST_TRACKED_BUTTON_GROUP(lp)        ((LONG_PTR **)((lp) + DO2_3264(0xA8, 0x108, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_TASKLIST_TRACKED_BUTTON_INDEX(lp)              ((int *)((lp) + DO2_3264(0xB0, 0x118, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_TASKLIST_ACVITE_BUTTON_GROUP(lp)         ((LONG_PTR **)((lp) + DO2_3264(0xB4, 0x120, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_TASKLIST_ACVITE_BUTTON_INDEX(lp)               ((int *)((lp) + DO2_3264(0xB8, 0x128, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_TASKLIST_PRESSED_BUTTON_GROUP(lp)        ((LONG_PTR **)((lp) + DO2_3264(0xBC, 0x130, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_TASKLIST_THUMB_BUTTON_GROUP(lp)          ((LONG_PTR **)((lp) + DO2_3264(0xE4, 0x168, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_TASKLIST_MM_THUMBNAIL_LONG_PTR(lp)        ((LONG_PTR *)((lp) + DO2_3264(0xE8, 0x170, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_TASKLIST_TOOLTIP_TIMER_ID(lp)                 ((UINT *)((lp) + DO2_3264(0xF0, 0x180, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_TASKLIST_THUMB_TIMER_ID(lp)                   ((UINT *)((lp) + DO2_3264(0xF8, 0x190, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_TASKLIST_HMONITOR(lp)                     ((HMONITOR *)((lp) + DEF3264(0x14, 0x28) + 0 /* omitted from public code */))
-
-#define EV_MM_TASKLIST_TASK_ITEM_FILTER(lp)             ((LONG_PTR *)((lp) + DEF3264(0x18, 0x30) + 0 /* omitted from public code */))
-
-#define EV_MM_TASKLIST_DRAG_FLAG(lp)                       ((DWORD *)((lp) + DO2_3264(0x150, 0x210, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_TASKLIST_ANIMATION_MANAGER(lp)           ((LONG_PTR **)((lp) + 0 /* omitted from public code */))
+HWND *EV_MM_TASKLIST_HWND(LONG_PTR lp);
+LONG_PTR *EV_MM_TASKLIST_TASK_BAND_REF(LONG_PTR lp);
+LONG_PTR EV_MM_TASKLIST_SECONDARY_TASK_BAND_LONG_PTR_VALUE(LONG_PTR lp);
+HDPA *EV_MM_TASKLIST_BUTTON_GROUPS_HDPA(LONG_PTR lp);
+HWND *EV_MM_TASKLIST_TOOLTIP_WND(LONG_PTR lp);
+BOOL *EV_MM_TASKLIST_THUMB_DISABLING_FLAG(LONG_PTR lp);
+LONG_PTR **EV_MM_TASKLIST_TRACKED_BUTTON_GROUP(LONG_PTR lp);
+int *EV_MM_TASKLIST_TRACKED_BUTTON_INDEX(LONG_PTR lp);
+LONG_PTR **EV_MM_TASKLIST_ACVITE_BUTTON_GROUP(LONG_PTR lp);
+int *EV_MM_TASKLIST_ACVITE_BUTTON_INDEX(LONG_PTR lp);
+LONG_PTR **EV_MM_TASKLIST_PRESSED_BUTTON_GROUP(LONG_PTR lp);
+LONG_PTR **EV_MM_TASKLIST_THUMB_BUTTON_GROUP(LONG_PTR lp);
+LONG_PTR *EV_MM_TASKLIST_MM_THUMBNAIL_LONG_PTR(LONG_PTR lp);
+UINT *EV_MM_TASKLIST_TOOLTIP_TIMER_ID(LONG_PTR lp);
+UINT *EV_MM_TASKLIST_THUMB_TIMER_ID(LONG_PTR lp);
+HMONITOR *EV_MM_TASKLIST_HMONITOR(LONG_PTR lp);
+LONG_PTR *EV_MM_TASKLIST_TASK_ITEM_FILTER(LONG_PTR lp);
+DWORD *EV_MM_TASKLIST_DRAG_FLAG(LONG_PTR lp);
+LONG_PTR **EV_MM_TASKLIST_ANIMATION_MANAGER(LONG_PTR lp);
 
 //////////////////////////////////////////////////////////////////////////
 // CTaskListThumbnailWnd (lpMMThumbnailLongPtr)
 
-#define EV_MM_THUMBNAIL_HWND(lp)                            ((HWND *)((lp) + DO2_3264(0x30, 0x60, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_THUMBNAIL_MM_TASKLIST_REF(lp)             ((LONG_PTR *)((lp) + DO2_3264(0x20, 0x40, 0, 0 /* omitted from public code */)))
-#define EV_MM_THUMBNAIL_MM_TASKLIST_LONG_PTR_VALUE(lp)               (*EV_MM_THUMBNAIL_MM_TASKLIST_REF(lp) - DEF3264(0x18, 0x30))
-
-#define EV_MM_THUMBNAIL_REDRAW_FLAGS(lp)                    ((BYTE *)((lp) + DO2_3264(0x44, 0x78, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_THUMBNAIL_TASK_GROUP(lp)                 ((LONG_PTR **)((lp) + DO2_3264(0x64, 0xA8, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_THUMBNAIL_THUMBNAILS_HDPA(lp)                 ((HDPA *)((lp) + DO2_3264(0x68, 0xB0, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_THUMBNAIL_NUM_THUMBNAILS(lp)                 ((DWORD *)((lp) + DO2_3264(0x70, 0xBC, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_THUMBNAIL_ACTIVE_THUMB_INDEX(lp)               ((int *)((lp) + DO2_3264(0x114, 0x168, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_THUMBNAIL_TRACKED_THUMB_INDEX(lp)              ((int *)((lp) + DO2_3264(0x11C, 0x170, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_THUMBNAIL_PRESSED_THUMB_INDEX(lp)              ((int *)((lp) + DO2_3264(0x120, 0x174, 0, 0 /* omitted from public code */)))
-
-#define EV_MM_THUMBNAIL_STICKY_FLAG(lp)                     ((BOOL *)((lp) + DO2_3264(0x144, 0x198, 0, 0 /* omitted from public code */)))
-
-// Until Windows 10 (for OPT_EX_LIST_REVERSE_ORDER)
-#define EV_MM_THUMBNAIL_LIST_FLAG(lp)                       ((BOOL *)((lp) + DO2_3264(0x1A0, 0x1F4, 0, 0 /* omitted from public code */)))
-
-// Until Windows 10 (for OPT_EX_LIST_REVERSE_ORDER)
-#define EV_MM_THUMBNAIL_LIST_FIRST_VISIBLE_INDEX(lp)         ((int *)((lp) + DO2_3264(0x1A8, 0x1FC, 0, 0 /* omitted from public code */)))
+HWND *EV_MM_THUMBNAIL_HWND(LONG_PTR lp);
+LONG_PTR *EV_MM_THUMBNAIL_MM_TASKLIST_REF(LONG_PTR lp);
+LONG_PTR EV_MM_THUMBNAIL_MM_TASKLIST_LONG_PTR_VALUE(LONG_PTR lp);
+BYTE *EV_MM_THUMBNAIL_REDRAW_FLAGS(LONG_PTR lp);
+LONG_PTR **EV_MM_THUMBNAIL_TASK_GROUP(LONG_PTR lp);
+HDPA *EV_MM_THUMBNAIL_THUMBNAILS_HDPA(LONG_PTR lp);
+DWORD *EV_MM_THUMBNAIL_NUM_THUMBNAILS(LONG_PTR lp);
+int *EV_MM_THUMBNAIL_ACTIVE_THUMB_INDEX(LONG_PTR lp);
+int *EV_MM_THUMBNAIL_TRACKED_THUMB_INDEX(LONG_PTR lp);
+int *EV_MM_THUMBNAIL_PRESSED_THUMB_INDEX(LONG_PTR lp);
+BOOL *EV_MM_THUMBNAIL_STICKY_FLAG(LONG_PTR lp);
+BOOL *EV_MM_THUMBNAIL_LIST_FLAG(LONG_PTR lp);
+int *EV_MM_THUMBNAIL_LIST_FIRST_VISIBLE_INDEX(LONG_PTR lp);
 
 //////////////////////////////////////////////////////////////////////////
 // CTaskThumbnail
 
 #define EV_TASK_THUMBNAIL_SIZE                                       DO2_3264(0x7C, 0xB0, 0, 0 /* omitted from public code */)
 
-// Maximum values for 32-bit and 64-bit of the DEF3264 above.
 #define EV_TASK_THUMBNAIL_SIZE_BUFFER_ALL_WIN_VERSIONS               DEF3264(0x88, 0xD0)
 
 //////////////////////////////////////////////////////////////////////////
 // CPearl (start button)
 
-#define EV_START_BUTTON_HWND(lp)                    ((HWND *)((lp) + DO2_3264(0x20, 0x38, 0, 0 /* omitted from public code */)))
+HWND *EV_START_BUTTON_HWND(LONG_PTR lp);
 
 //////////////////////////////////////////////////////////////////////////
 // CTrayButton
 
-#define EV_TRAY_BUTTON_HWND(lp)                     ((HWND *)((lp) + DEF3264(0x04, 0x08)))
+HWND *EV_TRAY_BUTTON_HWND(LONG_PTR lp);
 
 //////////////////////////////////////////////////////////////////////////
 // CTrayNotify (lpTrayNotifyLongPtr)
 
-// Until Windows 10 R1
-#define EV_TRAY_NOTIFY_CLOCK_WND(lp)                        ((HWND *)((lp) + DO2_3264(0x18, 0x30, 0, 0 /* omitted from public code */)))
-
-// Since Windows 10 R1
-#define EV_TRAY_NOTIFY_CLOCK_LONG_PTR(lp)               ((LONG_PTR *)((lp) + 0 /* omitted from public code */))
-
-#define EV_TRAY_NOTIFY_SHOW_DESKTOP_WND(lp)                 ((HWND *)((lp) + DO2_3264(0x28, 0x50, 0, 0 /* omitted from public code */)))
-
-#define EV_TRAY_NOTIFY_OVERFLOW_TOOLBAR_WND(lp)             ((HWND *)((lp) + DO2_3264(0x2AC, 0x328, 0, 0 /* omitted from public code */)))
-
-#define EV_TRAY_NOTIFY_TEMPORARY_TOOLBAR_WND(lp)            ((HWND *)((lp) + DO2_3264(0x2BC, 0x348, 0, 0 /* omitted from public code */)))
-
-#define EV_TRAY_NOTIFY_TOOLBAR_WND(lp)                      ((HWND *)((lp) + DO2_3264(0x29C, 0x308, 0, 0 /* omitted from public code */)))
-
-#define EV_TRAY_NOTIFY_PTRDEV_SUPPORTED(lp)                 ((BYTE *)((lp) + 0 /* omitted from public code */))
-
-// TRUE if EV_TRAY_NOTIFY_PTRDEV_SUPPORTED is valid, false otherwise.
-#define EV_TRAY_NOTIFY_PTRDEV_SUPPORTED_VALID(lp)           ((BYTE *)((lp) + 0 /* omitted from public code */))
-
-#define EV_TRAY_NOTIFY_DRAG_FLAG(lp)                       ((DWORD *)((lp) + \
-                                                                      DO2_3264(0x3BC, 0x4B8, 0, 0 /* omitted from public code */)))
+HWND *EV_TRAY_NOTIFY_CLOCK_WND(LONG_PTR lp);
+LONG_PTR *EV_TRAY_NOTIFY_CLOCK_LONG_PTR(LONG_PTR lp);
+HWND *EV_TRAY_NOTIFY_SHOW_DESKTOP_WND(LONG_PTR lp);
+HWND *EV_TRAY_NOTIFY_OVERFLOW_TOOLBAR_WND(LONG_PTR lp);
+HWND *EV_TRAY_NOTIFY_TEMPORARY_TOOLBAR_WND(LONG_PTR lp);
+HWND *EV_TRAY_NOTIFY_TOOLBAR_WND(LONG_PTR lp);
+BYTE* EV_TRAY_NOTIFY_PTRDEV_SUPPORTED(LONG_PTR lp);
+BYTE* EV_TRAY_NOTIFY_PTRDEV_SUPPORTED_VALID(LONG_PTR lp);
+DWORD *EV_TRAY_NOTIFY_DRAG_FLAG(LONG_PTR lp);
 
 //////////////////////////////////////////////////////////////////////////
 // CClockCtl (lpTrayClockLongPtr)
 // Until Windows 10 R1
 
-#define EV_TRAY_CLOCK_TEXT(lp)                             ((WCHAR *)((lp) + DO2_3264(0x104, 0x10C, 0, 0 /* omitted from public code */)))
-
-#define EV_TRAY_CLOCK_TIMER_ENABLED_FLAG(lp)                ((BOOL *)((lp) + DO2_3264(0x1B4, 0x1C8, 0, 0 /* omitted from public code */)))
-
-#define EV_TRAY_CLOCK_CACHED_TEXT_SIZE(lp)                   ((int *)((lp) + 0 /* omitted from public code */))
+WCHAR *EV_TRAY_CLOCK_TEXT(LONG_PTR lp);
+BOOL *EV_TRAY_CLOCK_TIMER_ENABLED_FLAG(LONG_PTR lp);
+int *EV_TRAY_CLOCK_CACHED_TEXT_SIZE(LONG_PTR lp);
 
 //////////////////////////////////////////////////////////////////////////
 // ClockButton (lpTrayClockLongPtr)
 // Since Windows 10 R1
 
-#define EV_CLOCK_BUTTON_HWND(lp)                    ((HWND *)((lp) + DEF3264(0x04, 0x08)))
-
-#define EV_CLOCK_BUTTON_SIZES_CACHED(lp)            ((BYTE *)((lp) + 0 /* omitted from public code */))
-
-#define EV_CLOCK_BUTTON_SHOW_SECONDS(lp)            ((BYTE *)((lp) + 0 /* omitted from public code */))
-
-#define EV_CLOCK_BUTTON_HOURS_CACHE(lp)             ((WORD *)((lp) + 0 /* omitted from public code */))
-
-#define EV_CLOCK_BUTTON_MINUTES_CACHE(lp)           ((WORD *)((lp) + 0 /* omitted from public code */))
+HWND *EV_CLOCK_BUTTON_HWND(LONG_PTR lp);
+BYTE *EV_CLOCK_BUTTON_SIZES_CACHED(LONG_PTR lp);
+BYTE *EV_CLOCK_BUTTON_SHOW_SECONDS(LONG_PTR lp);
+WORD *EV_CLOCK_BUTTON_HOURS_CACHE(LONG_PTR lp);
+WORD *EV_CLOCK_BUTTON_MINUTES_CACHE(LONG_PTR lp);
 
 //////////////////////////////////////////////////////////////////////////
 // CTaskItem
 
-#define EV_TASKITEM_CONTAINER_TASK_ITEM(lp)           ((LONG_PTR **)((LONG_PTR)(lp) + DO2_3264(0x2C, 0x38, 0, 0 /* omitted from public code */)))
-
-#define EV_TASKITEM_WND(lp)                                ((HWND *)((LONG_PTR)(lp) + DO2_3264(0x04, 0x08, 0, 0 /* omitted from public code */)))
+LONG_PTR **EV_TASKITEM_CONTAINER_TASK_ITEM(LONG_PTR *plp);
+HWND *EV_TASKITEM_WND(LONG_PTR *plp);
 
 //////////////////////////////////////////////////////////////////////////
 // CTaskGroup
 
-#define EV_TASKGROUP_TASKITEMS_HDPA(lp)                    ((HDPA *)((LONG_PTR)(lp) + DEF3264(0x10, 0x20)))
-
-#define EV_TASKGROUP_FLAGS(lp)                            ((DWORD *)((LONG_PTR)(lp) + DEF3264(0x14, 0x28)))
-
-#define EV_TASKGROUP_APPID(lp)                           ((WCHAR **)((LONG_PTR)(lp) + DO2_3264(0x28, 0x48, 0, 0 /* omitted from public code */)))
-
-#define EV_TASKGROUP_VISUAL_ORDER(lp)                       ((int *)((LONG_PTR)(lp) + DO2_3264(0x38, 0x5C, 0, 0 /* omitted from public code */)))
+HDPA *EV_TASKGROUP_TASKITEMS_HDPA(LONG_PTR *plp);
+DWORD *EV_TASKGROUP_FLAGS(LONG_PTR *plp);
+WCHAR **EV_TASKGROUP_APPID(LONG_PTR *plp);
+int *EV_TASKGROUP_VISUAL_ORDER(LONG_PTR *plp);
 
 //////////////////////////////////////////////////////////////////////////
 // CApplicationViewManager
 
-#define EV_APP_VIEW_MGR_APP_ARRAY_LOCK(lp)              ((SRWLOCK *)((LONG_PTR)(lp) + 0 /* omitted from public code */))
+SRWLOCK *EV_APP_VIEW_MGR_APP_ARRAY_LOCK(LONG_PTR lp);
+LONG_PTR **EV_APP_VIEW_MGR_APP_ARRAY(LONG_PTR lp);
+size_t *EV_APP_VIEW_MGR_APP_ARRAY_SIZE(LONG_PTR lp);
 
-#define EV_APP_VIEW_MGR_APP_ARRAY(lp)                 ((LONG_PTR **)((LONG_PTR)(lp) + 0 /* omitted from public code */))
+//////////////////////////////////////////////////////////////////////////
+// Functions
 
-#define EV_APP_VIEW_MGR_APP_ARRAY_SIZE(lp)               ((size_t *)((LONG_PTR)(lp) + 0 /* omitted from public code */))
+// CTaskBand::GetUserPreferences
+#define FUNC_CTaskBand_GetUserPreferences(plp)                       (plp[DO2(23, 0 /* omitted from public code */)])
+
+// CTaskBand::IsHorizontal
+#define FUNC_CTaskBand_IsHorizontal(plp)                             (plp[DO2(25, 0 /* omitted from public code */)])
+
+////////////////////
+
+// CTaskBand::ApplicationChanged(this, immersive_application, probably_flags, hwnd_unused)
+#define FUNC_CTaskBand_ApplicationChanged(plp)                       ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR, LONG_PTR, HWND))plp[DO2(0, 0 /* omitted from public code */)])
+
+////////////////////
+
+// CTaskBand::CurrentVirtualDesktopChangedAnimated
+#define FUNC_CTaskBand_CurrentVirtualDesktopChangedAnimated(plp)     (plp[3])
+
+////////////////////
+
+// CTaskBand::ViewVirtualDesktopChanged(this, application_view)
+#define FUNC_CTaskBand_ViewVirtualDesktopChanged(plp)                ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR))plp[DO2(0, 0 /* omitted from public code */)])
+
+// CTaskBand::CurrentVirtualDesktopChanged
+#define FUNC_CTaskBand_CurrentVirtualDesktopChanged(plp)             (plp[DO2(0, 0 /* omitted from public code */)])
+
+////////////////////
+
+// CTaskBand::GetIconId
+#define FUNC_CTaskBand_GetIconId(plp)                                (plp[4])
+
+// CTaskBand::SwitchTo(this, task_item, true_means_bring_to_front_false_means_toggle_minimize_restore)
+#define FUNC_CTaskBand_SwitchTo(plp)                                 ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, BOOL))plp[DO2(7, 0 /* omitted from public code */)])
+
+// CTaskBand::Launch(this, task_group, p_point, run_as_admin)
+#define FUNC_CTaskBand_Launch(plp)                                   ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, POINT *, BYTE))plp[DO2(8, 0 /* omitted from public code */)])
+
+// Only Windows 7
+// CTaskBand::Launch(this, task_group)
+#define FUNC_CTaskBand_Launch_w7(plp)                                ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *))plp[10])
+
+// Since Windows 8.1.1
+// CTaskBand::CloseItem(this, task_item)
+#define FUNC_CTaskBand_CloseItem(plp)                                ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *))plp[DO2(0, 0 /* omitted from public code */)])
+
+// Until Windows 10
+// CTaskBand::GetIconSize
+#define FUNC_CTaskBand_GetIconSize(plp)                              (plp[DO2(0, 0 /* omitted from public code */)])
+
+////////////////////
+
+// CSecondaryTaskBand::GetUserPreferences
+#define FUNC_CSecondaryTaskBand_GetUserPreferences(plp)              (plp[DO2(7, 0 /* omitted from public code */)])
+
+// CSecondaryTaskBand::IsHorizontal
+#define FUNC_CSecondaryTaskBand_IsHorizontal(plp)                    (plp[DO2(13, 0 /* omitted from public code */)])
+
+////////////////////
+
+// CTaskListWnd::StartAnimation(this, button_group, animation_id)
+#define FUNC_CTaskListWnd_StartAnimation(plp)                        ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, LONG_PTR))plp[5])
+
+////////////////////
+
+// CTaskListWnd::GetStuckPlace
+#define FUNC_CTaskListWnd_GetStuckPlace(plp)                         (plp[4])
+
+// CTaskListWnd::ShowLivePreview(this, hWnd, uFlags)
+#define FUNC_CTaskListWnd_ShowLivePreview(plp)                       ((LONG_PTR(__stdcall *)(LONG_PTR, HWND, LONG_PTR))plp[DO2(18, 0 /* omitted from public code */)])
+
+////////////////////
+
+// CTaskListWnd::Initialize
+#define FUNC_CTaskListWnd_Initialize(plp)                            (plp[3])
+
+// CTaskListWnd::TaskCreated
+#define FUNC_CTaskListWnd_TaskCreated(plp)                           (plp[DO2(3, 0 /* omitted from public code */)])
+
+// CTaskListWnd::ActivateTask
+#define FUNC_CTaskListWnd_ActivateTask(plp)                          (plp[DO2(5, 0 /* omitted from public code */)])
+
+// Until Windows 10 R1
+// CTaskListWnd::TaskDestroyed
+#define FUNC_CTaskListWnd_TaskDestroyed(plp)                         (plp[DO2(7, 0 /* omitted from public code */)])
+
+// CTaskListWnd::TaskInclusionChanged
+#define FUNC_CTaskListWnd_TaskInclusionChanged(plp)                  (plp[DO2(0, 0 /* omitted from public code */)])
+
+// CTaskListWnd::GetButtonHeight
+#define FUNC_CTaskListWnd_GetButtonHeight(plp)                       (plp[DO2(11, 0 /* omitted from public code */)])
+
+// CTaskListWnd::AutoSize(this)
+#define FUNC_CTaskListWnd_AutoSize(plp)                              ((LONG_PTR(__stdcall *)(LONG_PTR))plp[DO2(15, 0 /* omitted from public code */)])
+
+// CTaskListWnd::DismissHoverUI(this, hide_without_animation)
+#define FUNC_CTaskListWnd_DismissHoverUI(plp)                        ((LONG_PTR(__stdcall *)(LONG_PTR, BOOL))plp[DO2(27, 0 /* omitted from public code */)])
+
+// CTaskListWnd::ShowJumpView
+#define FUNC_CTaskListWnd_ShowJumpView(plp)                          (plp[DO2(30, 0 /* omitted from public code */)])
+
+////////////////////
+
+// Until Windows 10 R1
+// CTaskListWnd::OnDestinationMenuDismissed
+#define FUNC_CTaskListWnd_OnDestinationMenuDismissed(plp)            (plp[DO2(8, 0 /* omitted from public code */)])
+
+////////////////////
+
+// CTaskListWndMulti::TaskDestroyed(this, ITaskGroup *, ITaskItem *)
+#define FUNC_CTaskListWndMulti_TaskDestroyed(plp)                    ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, LONG_PTR *))plp[DO2(0, 0 /* omitted from public code */)])
+
+////////////////////
+
+// CTaskListThumbnailWnd::DisplayUI
+#define FUNC_CTaskListThumbnailWnd_DisplayUI(plp)                    (plp[4])
+
+////////////////////
+
+// Until Windows 10
+// CTaskListThumbnailWnd::GetThumbRectFromIndex
+#define FUNC_CTaskListThumbnailWnd_GetThumbRectFromIndex(plp)        (plp[7])
+
+// Until Windows 10
+// CTaskListThumbnailWnd::ThumbIndexFromPoint(this, ppt)
+#define FUNC_CTaskListThumbnailWnd_ThumbIndexFromPoint(plp)          ((int(__stdcall *)(LONG_PTR, POINT *))plp[DO2(13, 0 /* omitted from public code */)])
+
+////////////////////
+
+// CWindowTaskItem::SetWindow(this, new_hwnd)
+#define FUNC_CWindowTaskItem_SetWindow(plp)                          ((LONG_PTR(__stdcall *)(LONG_PTR, HWND))plp[DO2(18, 0 /* omitted from public code */)])
+
+// CWindowTaskItem::GetWindow(this)
+#define FUNC_CWindowTaskItem_GetWindow(plp)                          ((HWND(__stdcall *)(LONG_PTR))plp[DO2(19, 0 /* omitted from public code */)])
+
+// CWindowTaskItem::IsImmersive(this)
+#define FUNC_CWindowTaskItem_IsImmersive(plp)                        ((BYTE(__stdcall *)(LONG_PTR))plp[DO2(0, 0 /* omitted from public code */)])
+
+////////////////////
+
+// CTaskItem::IsVisibleOnCurrentVirtualDesktop(this)
+#define FUNC_CTaskItem_IsVisibleOnCurrentVirtualDesktop(plp)         ((BYTE(__stdcall *)(LONG_PTR))plp[DO2(0, 0 /* omitted from public code */)])
+
+// CTaskItem::SetVisibleOnCurrentVirtualDesktop(this, bool)
+#define FUNC_CTaskItem_SetVisibleOnCurrentVirtualDesktop(plp)        ((LONG_PTR(__stdcall *)(LONG_PTR, BYTE))plp[DO2(0, 0 /* omitted from public code */)])
+
+////////////////////
+
+// CTaskGroup::DoesWindowMatch
+#define FUNC_CTaskGroup_DoesWindowMatch(plp)                         (plp[7])
+
+// CTaskGroup::GetNumTabs(this, a, b)
+#define FUNC_CTaskGroup_GetNumTabs(plp)                              ((int(__stdcall *)(LONG_PTR, int *, int *))plp[10])
+
+// Only Windows 7
+// CTaskGroup::GroupMenuCommand(this, wCommand)
+#define FUNC_CTaskGroup_GroupMenuCommand_w7(plp)                     ((LONG_PTR(__stdcall *)(LONG_PTR, WPARAM))plp[30])
+
+// Only Windows 8
+// CTaskGroup::GroupMenuCommand(this, hMonitor, wCommand)
+#define FUNC_CTaskGroup_GroupMenuCommand_w8(plp)                     ((LONG_PTR(__stdcall *)(LONG_PTR, HMONITOR, WPARAM))plp[30])
+
+// CTaskGroup::GroupMenuCommand(this, ITaskItemFilter, wCommand)
+#define FUNC_CTaskGroup_GroupMenuCommand(plp)                        ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR, WPARAM))plp[DO2(0, 0 /* omitted from public code */)])
+
+// CTaskGroup::IsImmersiveGroup(this)
+#define FUNC_CTaskGroup_IsImmersiveGroup(plp)                        ((BYTE(__stdcall *)(LONG_PTR))plp[DO2(0, 0 /* omitted from public code */)])
+
+////////////////////
+
+// CTaskBtnGroup::RemoveTaskItem
+#define FUNC_CTaskBtnGroup_RemoveTaskItem(plp)                       (plp[DO2(8, 0 /* omitted from public code */)])
+
+// CTaskBtnGroup::GetIdealSpan
+#define FUNC_CTaskBtnGroup_GetIdealSpan(plp)                         (plp[DO2(10, 0 /* omitted from public code */)])
+
+// CTaskBtnGroup::GetLocation(this, task_item, p_rect)
+#define FUNC_CTaskBtnGroup_GetLocation(plp)                          ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, RECT *))plp[DO2(13, 0 /* omitted from public code */)])
+
+// CTaskBtnGroup::SetLocation
+#define FUNC_CTaskBtnGroup_SetLocation(plp)                          (plp[DO2(14, 0 /* omitted from public code */)])
+
+// CTaskBtnGroup::Render
+#define FUNC_CTaskBtnGroup_Render(plp)                               (plp[DO2(18, 0 /* omitted from public code */)])
+
+// CTaskBtnGroup::CanGlom
+#define FUNC_CTaskBtnGroup_CanGlom(plp)                              (plp[DO2(20, 0 /* omitted from public code */)])
+
+// CTaskBtnGroup::Glom
+#define FUNC_CTaskBtnGroup_Glom(plp)                                 ((LONG_PTR(__stdcall *)(LONG_PTR *, BOOL))plp[DO2(22, 0 /* omitted from public code */)])
+
+// Until Windows 10
+// CTaskBtnGroup::HandleGroupHotTracking
+#define FUNC_CTaskBtnGroup_HandleGroupHotTracking(plp)               (plp[DO2(28, 0 /* omitted from public code */)])
+
+// Until Windows 10
+// CTaskBtnGroup::HandleGroupHotTrackOut
+#define FUNC_CTaskBtnGroup_HandleGroupHotTrackOut(plp)               (plp[DO2(29, 0 /* omitted from public code */)])
+
+// CTaskBtnGroup::StartItemAnimation
+#define FUNC_CTaskBtnGroup_StartItemAnimation(plp)                   (plp[32])
+
+// CTaskBtnGroup::HasItemAnimation
+#define FUNC_CTaskBtnGroup_HasItemAnimation(plp)                     (plp[33])
+
+// CTaskBtnGroup::ShouldShowToolTip
+#define FUNC_CTaskBtnGroup_ShouldShowToolTip(plp)                    (plp[DO2(34, 0 /* omitted from public code */)])
+
+// CTaskBtnGroup::GetNumStacks(this)
+#define FUNC_CTaskBtnGroup_GetNumStacks(plp)                         ((int(__stdcall *)(LONG_PTR))plp[DO2(41, 0 /* omitted from public code */)])

@@ -43,6 +43,9 @@ POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prGetUserPreferences);
 static void **ppIsHorizontal;
 static void *pIsHorizontal;
 POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prIsHorizontal);
+static void **ppGetIconId;
+static void *pGetIconId;
+POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prGetIconId);
 static void **ppSwitchTo;
 static void *pSwitchTo;
 POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prSwitchTo);
@@ -183,6 +186,9 @@ static DWORD dwDragTickCount;
 static LONG_PTR *task_group_virtual_desktop_released;
 static LONG_PTR *task_item_virtual_desktop_released;
 static int nDoesWindowMatchCalls;
+static BOOL bHadCurrentVirtualDesktopChangedAnimated;
+static BOOL bTaskItemGetWindowReturnNull;
+static LONG_PTR lpTaskItemGetWindowSavedValue;
 
 static BOOL HookFunctions();
 static void UnhookFunctions();
@@ -199,6 +205,7 @@ static HRESULT __stdcall OleDragOverHook(IDropTarget *This, DWORD grfKeyState, P
 static HRESULT __stdcall OleDropHook(IDropTarget *This, IDataObject *pDataObj, DWORD grfKeyState, POINTL pt, DWORD *pdwEffect);
 static LONG_PTR __stdcall GetUserPreferencesHook(LONG_PTR var1, DWORD *pdwPreferences);
 static LONG_PTR __stdcall IsHorizontalHook(LONG_PTR this_ptr);
+static LONG_PTR __stdcall GetIconIdHook(LONG_PTR this_ptr, LONG_PTR *task_group, LONG_PTR *task_item, LONG_PTR var4, LONG_PTR var5);
 static LONG_PTR __stdcall SwitchToHook(LONG_PTR this_ptr, LONG_PTR var2, LONG_PTR *task_item, BOOL bSwitchTo);
 static LONG_PTR __stdcall SwitchToHook2(LONG_PTR this_ptr, LONG_PTR *task_item, BOOL bSwitchTo);
 static void SwitchToExecOption(LONG_PTR *task_item, int nOption);
@@ -219,7 +226,7 @@ static LONG_PTR __stdcall ActivateTaskHook(LONG_PTR this_ptr, LONG_PTR *task_gro
 static LONG_PTR __stdcall TaskDestroyedHook(LONG_PTR this_ptr, LONG_PTR *task_group, LONG_PTR *task_item);
 static LONG_PTR __stdcall TaskInclusionChangedHook(LONG_PTR this_ptr, LONG_PTR *task_group, LONG_PTR *task_item);
 static LONG_PTR __stdcall GetButtonHeightHook(LONG_PTR this_ptr, LONG_PTR var2);
-static LONG_PTR __stdcall DismissHoverUIHook(LONG_PTR this_ptr, BOOL bHide);
+static LONG_PTR __stdcall DismissHoverUIHook(LONG_PTR this_ptr, BOOL bHideWithoutAnimation);
 static LONG_PTR __stdcall ShowDestinationMenuHook(LONG_PTR this_ptr, LONG_PTR *task_group, LONG_PTR *task_item, LONG_PTR var4, LONG_PTR var5);
 static LONG_PTR __stdcall ShowJumpViewHook(LONG_PTR this_ptr, LONG_PTR *task_group, LONG_PTR *task_item, LONG_PTR var4);
 static void JumpListExecOption(LONG_PTR lpMMTaskListLongPtr, HWND hMMTaskListWnd, LONG_PTR *task_group, LONG_PTR *task_item, int nOption);
@@ -230,7 +237,7 @@ static LONG_PTR __stdcall GetThumbRectFromIndexHook(LONG_PTR this_ptr, int thumb
 static int __stdcall ThumbIndexFromPointHook(LONG_PTR this_ptr, POINT *ppt);
 static HRESULT __stdcall DoesWindowMatchHook(LONG_PTR *task_group, HWND hCompareWnd, ITEMIDLIST *pCompareItemIdList,
 	WCHAR *pCompareAppId, int *pnMatch, LONG_PTR **p_task_item);
-static BOOL FindTaskGroupPairInArrayWithSameAppId(const LONG_PTR *task_group, LONG_PTR ***pp_task_group, LONG_PTR ***pp_task_group_other);
+static BOOL FindTaskGroupPairInArrayWithSameAppId(LONG_PTR *task_group, LONG_PTR ***pp_task_group, LONG_PTR ***pp_task_group_other);
 static int __stdcall TaskItemSetWindowHook(LONG_PTR *task_item, HWND hNewWnd);
 static HWND __stdcall TaskItemGetWindowHook(LONG_PTR *task_item);
 static LONG_PTR __stdcall ButtonGroupRemoveTaskItemHook(LONG_PTR *button_group, LONG_PTR *task_item);
@@ -329,40 +336,45 @@ static BOOL HookFunctions()
 	plp = *(LONG_PTR **)(lpTaskListLongPtr + DO2_3264(0x38, 0x70, 0, 0 /* omitted from public code */));
 	plp = *(LONG_PTR **)plp;
 
-	ppGetUserPreferences = (void **)&plp[DO2(23, 0 /* omitted from public code */)];
+	ppGetUserPreferences = (void **)&FUNC_CTaskBand_GetUserPreferences(plp);
 	if(!CreateEnableHook(ppGetUserPreferences, GetUserPreferencesHook, &pGetUserPreferences, &prGetUserPreferences))
 		return FALSE;
 
-	ppIsHorizontal = (void **)&plp[DO2(25, 0 /* omitted from public code */)];
+	ppIsHorizontal = (void **)&FUNC_CTaskBand_IsHorizontal(plp);
 	if(!CreateEnableHook(ppIsHorizontal, IsHorizontalHook, &pIsHorizontal, &prIsHorizontal))
 		return FALSE;
 
-	// CTaskBand::SwitchTo, GetIconSize
+	// CTaskBand::GetIconId, SwitchTo, GetIconSize
 	plp = *(LONG_PTR **)(lpTaskListLongPtr + DO2_3264(0x38, 0x70, 0, 0 /* omitted from public code */));
 	plp = *(LONG_PTR **)plp;
 
+	if(nWinVersion >= WIN_VERSION_10_T1)
+	{
+		ppGetIconId = (void**)&FUNC_CTaskBand_GetIconId(plp);
+		if(!CreateEnableHook(ppGetIconId, GetIconIdHook, &pGetIconId, &prGetIconId))
+			return FALSE;
+	}
+
+	ppSwitchTo = (void**)&FUNC_CTaskBand_SwitchTo(plp);
 	if(nWinVersion >= WIN_VERSION_811)
 	{
-		ppSwitchTo = (void **)&plp[DO2(7, 0 /* omitted from public code */)];
 		if(!CreateEnableHook(ppSwitchTo, SwitchToHook2, &pSwitchTo, &prSwitchTo))
 			return FALSE;
 	}
 	else
 	{
-		ppSwitchTo = (void **)&plp[7];
 		if(!CreateEnableHook(ppSwitchTo, SwitchToHook, &pSwitchTo, &prSwitchTo))
 			return FALSE;
 	}
 
+	ppGetIconSize = (void**)&FUNC_CTaskBand_GetIconSize(plp);
 	if(nWinVersion == WIN_VERSION_81)
 	{
-		ppGetIconSize = (void **)&plp[20];
 		if(!CreateEnableHook(ppGetIconSize, GetIconSizeHook, &pGetIconSize, &prGetIconSize))
 			return FALSE;
 	}
 	else if(nWinVersion == WIN_VERSION_811)
 	{
-		ppGetIconSize = (void **)&plp[23];
 		if(!CreateEnableHook(ppGetIconSize, GetIconSizeHook2, &pGetIconSize, &prGetIconSize))
 			return FALSE;
 	}
@@ -376,13 +388,13 @@ static BOOL HookFunctions()
 	{
 		plp = *(LONG_PTR **)(lpTaskSwLongPtr + DEF3264(0x38, 0x70));
 
-		ppCurrentVirtualDesktopChanged = (void **)&plp[8];
+		ppCurrentVirtualDesktopChanged = (void **)&FUNC_CTaskBand_CurrentVirtualDesktopChanged(plp);
 		if(!CreateEnableHook(ppCurrentVirtualDesktopChanged, CurrentVirtualDesktopChangedHook, &pCurrentVirtualDesktopChanged, &prCurrentVirtualDesktopChanged))
 			return FALSE;
 
 		plp = *(LONG_PTR **)(lpTaskSwLongPtr + DEF3264(0x3C, 0x78));
 
-		ppCurrentVirtualDesktopChangedAnimated = (void **)&plp[3];
+		ppCurrentVirtualDesktopChangedAnimated = (void **)&FUNC_CTaskBand_CurrentVirtualDesktopChangedAnimated(plp);
 		if(!CreateEnableHook(ppCurrentVirtualDesktopChangedAnimated, CurrentVirtualDesktopChangedAnimatedHook, &pCurrentVirtualDesktopChangedAnimated, &prCurrentVirtualDesktopChangedAnimated))
 			return FALSE;
 	}
@@ -390,64 +402,62 @@ static BOOL HookFunctions()
 	// StartAnimation
 	plp = *(LONG_PTR **)(lpTaskListLongPtr + DEF3264(0x1C, 0x38));
 
-	ppStartAnimation = (void **)&plp[5];
+	ppStartAnimation = (void **)&FUNC_CTaskListWnd_StartAnimation(plp);
 	if(!CreateEnableHook(ppStartAnimation, StartAnimationHook, &pStartAnimation, &prStartAnimation))
 		return FALSE;
 
 	// GetStuckPlace
 	plp = *(LONG_PTR **)(lpTaskListLongPtr + DEF3264(0x18, 0x30));
 
-	ppGetStuckPlace = (void **)&plp[4];
+	ppGetStuckPlace = (void **)&FUNC_CTaskListWnd_GetStuckPlace(plp);
 	if(!CreateEnableHook(ppGetStuckPlace, GetStuckPlaceHook, &pGetStuckPlace, &prGetStuckPlace))
 		return FALSE;
 
-	// TaskListWndInitialize (Windows 8+), TaskCreated, ActivateTask, TaskDestroyed, TaskInclusionChanged, GetButtonHeight, DismissHoverUI, ShowDestinationMenu (ShowJumpView)
+	// TaskListWndInitialize (Windows 8+), TaskCreated, ActivateTask, TaskDestroyed (Until Windows 10 R1), TaskInclusionChanged, GetButtonHeight, DismissHoverUI, ShowJumpView
 	plp = *(LONG_PTR **)(lpTaskListLongPtr + DEF3264(0x14, 0x28));
 
+	ppTaskListWndInitialize = (void**)&FUNC_CTaskListWnd_Initialize(plp);
 	if(nWinVersion >= WIN_VERSION_10_R2)
 	{
-		ppTaskListWndInitialize = (void **)&plp[3];
 		if(!CreateEnableHook(ppTaskListWndInitialize, TaskListWndInitializeHook3, &pTaskListWndInitialize, &prTaskListWndInitialize))
 			return FALSE;
 	}
 	else if(nWinVersion >= WIN_VERSION_10_T1)
 	{
-		ppTaskListWndInitialize = (void **)&plp[3];
 		if(!CreateEnableHook(ppTaskListWndInitialize, TaskListWndInitializeHook2, &pTaskListWndInitialize, &prTaskListWndInitialize))
 			return FALSE;
 	}
 	else if(nWinVersion >= WIN_VERSION_8)
 	{
-		ppTaskListWndInitialize = (void **)&plp[3];
 		if(!CreateEnableHook(ppTaskListWndInitialize, TaskListWndInitializeHook, &pTaskListWndInitialize, &prTaskListWndInitialize))
 			return FALSE;
 	}
 
-	ppTaskCreated = (void **)&plp[DO2(3, 0 /* omitted from public code */)];
+	ppTaskCreated = (void **)&FUNC_CTaskListWnd_TaskCreated(plp);
 	if(!CreateEnableHook(ppTaskCreated, TaskCreatedHook, &pTaskCreated, &prTaskCreated))
 		return FALSE;
 
-	ppActivateTask = (void **)&plp[DO2(5, 0 /* omitted from public code */)];
+	ppActivateTask = (void **)&FUNC_CTaskListWnd_ActivateTask(plp);
 	if(!CreateEnableHook(ppActivateTask, ActivateTaskHook, &pActivateTask, &prActivateTask))
 		return FALSE;
 
 	if(nWinVersion <= WIN_VERSION_10_T2)
 	{
-		ppTaskDestroyed = (void **)&plp[DO2(7, 0 /* omitted from public code */)];
+		ppTaskDestroyed = (void **)&FUNC_CTaskListWnd_TaskDestroyed(plp);
 		if(!CreateEnableHook(ppTaskDestroyed, TaskDestroyedHook, &pTaskDestroyed, &prTaskDestroyed))
 			return FALSE;
 	}
 
 	if(nWinVersion >= WIN_VERSION_10_T1)
 	{
-		ppTaskInclusionChanged = (void **)&plp[13];
+		ppTaskInclusionChanged = (void **)&FUNC_CTaskListWnd_TaskInclusionChanged(plp);
 		if(!CreateEnableHook(ppTaskInclusionChanged, TaskInclusionChangedHook, &pTaskInclusionChanged, &prTaskInclusionChanged))
 			return FALSE;
 	}
 
 	if(nWinVersion != WIN_VERSION_81 && nWinVersion != WIN_VERSION_811)
 	{
-		ppGetButtonHeight = (void **)&plp[DO2(11, 0 /* omitted from public code */)];
+		ppGetButtonHeight = (void **)&FUNC_CTaskListWnd_GetButtonHeight(plp);
 		if(!CreateEnableHook(ppGetButtonHeight, GetButtonHeightHook, &pGetButtonHeight, &prGetButtonHeight))
 			return FALSE;
 	}
@@ -456,11 +466,11 @@ static BOOL HookFunctions()
 		// GetIconSize is hooked instead (see above)
 	}
 
-	ppDismissHoverUI = (void **)&plp[DO2(27, 0 /* omitted from public code */)];
+	ppDismissHoverUI = (void **)&FUNC_CTaskListWnd_DismissHoverUI(plp);
 	if(!CreateEnableHook(ppDismissHoverUI, DismissHoverUIHook, &pDismissHoverUI, &prDismissHoverUI))
 		return FALSE;
 
-	ppShowDestinationMenu = (void **)&plp[DO2(30, 0 /* omitted from public code */)];
+	ppShowDestinationMenu = (void **)&FUNC_CTaskListWnd_ShowJumpView(plp);
 	if(nWinVersion <= WIN_VERSION_10_T2)
 	{
 		if(!CreateEnableHook(ppShowDestinationMenu, ShowDestinationMenuHook, &pShowDestinationMenu, &prShowDestinationMenu))
@@ -477,7 +487,7 @@ static BOOL HookFunctions()
 		// CTaskListWnd::OnDestinationMenuDismissed
 		plp = *(LONG_PTR **)(lpTaskListLongPtr + DO2_3264(0x30, 0x60, 0, 0 /* omitted from public code */));
 
-		ppOnDestinationMenuDismissed = (void **)&plp[DO2(8, 5)];
+		ppOnDestinationMenuDismissed = (void **)&FUNC_CTaskListWnd_OnDestinationMenuDismissed(plp);
 		if(!CreateEnableHook(ppOnDestinationMenuDismissed, OnDestinationMenuDismissedHook, &pOnDestinationMenuDismissed, &prOnDestinationMenuDismissed))
 			return FALSE;
 	}
@@ -489,7 +499,7 @@ static BOOL HookFunctions()
 	// CTaskListThumbnailWnd::DisplayUI
 	plp = *(LONG_PTR **)lpThumbnailLongPtr;
 
-	ppDisplayUI = (void **)&plp[4];
+	ppDisplayUI = (void **)&FUNC_CTaskListThumbnailWnd_DisplayUI(plp);
 	if(!CreateEnableHook(ppDisplayUI, DisplayUIHook, &pDisplayUI, &prDisplayUI))
 		return FALSE;
 
@@ -499,11 +509,11 @@ static BOOL HookFunctions()
 		// CTaskListThumbnailWnd::GetThumbRectFromIndex, CTaskListThumbnailWnd::ThumbIndexFromPoint
 		plp = *(LONG_PTR **)(lpThumbnailLongPtr + DO2_3264(0x10, 0x20, 0, 0 /* omitted from public code */));
 
-		ppGetThumbRectFromIndex = (void **)&plp[7];
+		ppGetThumbRectFromIndex = (void **)&FUNC_CTaskListThumbnailWnd_GetThumbRectFromIndex(plp);
 		if(!CreateEnableHook(ppGetThumbRectFromIndex, GetThumbRectFromIndexHook, &pGetThumbRectFromIndex, &prGetThumbRectFromIndex))
 			return FALSE;
 
-		ppThumbIndexFromPoint = (void **)&plp[DO2(13, 14)];
+		ppThumbIndexFromPoint = (void **)&FUNC_CTaskListThumbnailWnd_ThumbIndexFromPoint(plp);
 		if(!CreateEnableHook(ppThumbIndexFromPoint, ThumbIndexFromPointHook, &pThumbIndexFromPoint, &prThumbIndexFromPoint))
 			return FALSE;
 	}
@@ -538,6 +548,8 @@ static void UnhookFunctions()
 	DisableHook(ppOleDrop, &prOleDrop);
 	DisableHook(ppGetUserPreferences, &prGetUserPreferences);
 	DisableHook(ppIsHorizontal, &prIsHorizontal);
+	if(nWinVersion >= WIN_VERSION_10_T1)
+		DisableHook(ppGetIconId, &prGetIconId);
 	DisableHook(ppSwitchTo, &prSwitchTo);
 	if(nWinVersion == WIN_VERSION_81 || nWinVersion == WIN_VERSION_811)
 		DisableHook(ppGetIconSize, &prGetIconSize);
@@ -584,15 +596,40 @@ static void UnhookFunctions()
 
 static BOOL HookTaskGroupFunctions()
 {
-	LONG_PTR *plp = (LONG_PTR *)*EV_TASK_SW_TASK_GROUPS_HDPA;
+	LONG_PTR *plp = (LONG_PTR *)*EV_TASK_SW_TASK_GROUPS_HDPA();
 	if(!plp || (int)plp[0] == 0)
 		return TRUE;
 
-	plp = (LONG_PTR *)plp[1]; // CTaskGroup DPA array
-	plp = (LONG_PTR *)plp[0]; // First array item
-	plp = (LONG_PTR *)plp[0]; // COM functions list
+	int task_groups_count = (int)plp[0];
+	LONG_PTR **task_groups = (LONG_PTR **)plp[1];
+	LONG_PTR *task_group;
 
-	ppDoesWindowMatch = (void **)&plp[7];
+	int i;
+	for(i = 0; i < task_groups_count; i++)
+	{
+		task_group = (LONG_PTR *)task_groups[i];
+
+		if(nWinVersion >= WIN_VERSION_10_T1)
+		{
+			LONG_PTR this_ptr = (LONG_PTR)task_group;
+			plp = *(LONG_PTR **)this_ptr;
+
+			// CTaskGroup::IsImmersiveGroup(this)
+			if(FUNC_CTaskGroup_IsImmersiveGroup(plp)(this_ptr))
+			{
+				continue;
+			}
+		}
+
+		break;
+	}
+
+	if(i == task_groups_count)
+		return TRUE;
+
+	plp = (LONG_PTR *)task_group[0]; // COM functions list
+
+	ppDoesWindowMatch = (void **)&FUNC_CTaskGroup_DoesWindowMatch(plp);
 
 	if(!CreateEnableHook(ppDoesWindowMatch, DoesWindowMatchHook, &pDoesWindowMatch, &prDoesWindowMatch))
 	{
@@ -611,7 +648,7 @@ static void UnhookTaskGroupFunctions()
 
 static BOOL HookTaskItemFunctions()
 {
-	LONG_PTR *plp = (LONG_PTR *)*EV_TASK_SW_TASK_GROUPS_HDPA;
+	LONG_PTR *plp = (LONG_PTR *)*EV_TASK_SW_TASK_GROUPS_HDPA();
 	if(!plp || (int)plp[0] == 0)
 		return TRUE;
 
@@ -621,7 +658,21 @@ static BOOL HookTaskItemFunctions()
 	int i;
 	for(i = 0; i < task_groups_count; i++)
 	{
-		plp = (LONG_PTR *)task_groups[i][4];
+		LONG_PTR *task_group = (LONG_PTR *)task_groups[i];
+
+		if(nWinVersion >= WIN_VERSION_10_T1)
+		{
+			LONG_PTR this_ptr = (LONG_PTR)task_group;
+			plp = *(LONG_PTR **)this_ptr;
+
+			// CTaskGroup::IsImmersiveGroup(this)
+			if(FUNC_CTaskGroup_IsImmersiveGroup(plp)(this_ptr))
+			{
+				continue;
+			}
+		}
+
+		plp = (LONG_PTR *)task_group[4];
 		if(plp && (int)plp[0] > 0)
 			break;
 	}
@@ -633,8 +684,8 @@ static BOOL HookTaskItemFunctions()
 	plp = (LONG_PTR *)plp[0]; // First array item
 	plp = (LONG_PTR *)plp[0]; // COM functions list
 
-	ppTaskItemSetWindow = (void **)&plp[DO2(18, 0 /* omitted from public code */)];
-	ppTaskItemGetWindow = (void **)&plp[DO2(19, 0 /* omitted from public code */)];
+	ppTaskItemSetWindow = (void **)&FUNC_CWindowTaskItem_SetWindow(plp);
+	ppTaskItemGetWindow = (void **)&FUNC_CWindowTaskItem_GetWindow(plp);
 
 	if(
 		!CreateEnableHook(ppTaskItemSetWindow, TaskItemSetWindowHook, &pTaskItemSetWindow, &prTaskItemSetWindow) ||
@@ -682,12 +733,12 @@ static BOOL HookTaskBtnGroupFunctions()
 	plp = (LONG_PTR *)plp[0]; // First array item
 	plp = (LONG_PTR *)plp[0]; // COM functions list
 
-	ppButtonGroupRemoveTaskItem = (void **)&plp[DO2(8, 0 /* omitted from public code */)];
-	ppGetIdealSpan = (void **)&plp[DO2(10, 0 /* omitted from public code */)];
-	ppSetLocation = (void **)&plp[DO2(14, 0 /* omitted from public code */)];
-	ppRender = (void **)&plp[DO2(18, 0 /* omitted from public code */)];
-	ppButtonGroupCanGlom = (void **)&plp[DO2(20, 0 /* omitted from public code */)];
-	ppShouldShowToolTip = (void **)&plp[DO2(34, 36)];
+	ppButtonGroupRemoveTaskItem = (void **)&FUNC_CTaskBtnGroup_RemoveTaskItem(plp);
+	ppGetIdealSpan = (void **)&FUNC_CTaskBtnGroup_GetIdealSpan(plp);
+	ppSetLocation = (void **)&FUNC_CTaskBtnGroup_SetLocation(plp);
+	ppRender = (void **)&FUNC_CTaskBtnGroup_Render(plp);
+	ppButtonGroupCanGlom = (void **)&FUNC_CTaskBtnGroup_CanGlom(plp);
+	ppShouldShowToolTip = (void **)&FUNC_CTaskBtnGroup_ShouldShowToolTip(plp);
 
 	void *pRenderHook;
 	if(nWinVersion >= WIN_VERSION_10_R4)
@@ -710,8 +761,8 @@ static BOOL HookTaskBtnGroupFunctions()
 
 	if(nWinVersion <= WIN_VERSION_811)
 	{
-		ppButtonGroupHotTracking = (void **)&plp[DO2(28, 30)];
-		ppButtonGroupHotTrackOut = (void **)&plp[DO2(29, 31)];
+		ppButtonGroupHotTracking = (void **)&FUNC_CTaskBtnGroup_HandleGroupHotTracking(plp);
+		ppButtonGroupHotTrackOut = (void **)&FUNC_CTaskBtnGroup_HandleGroupHotTrackOut(plp);
 
 		if(
 			!CreateEnableHook(ppButtonGroupHotTracking, ButtonGroupHotTrackingHook, &pButtonGroupHotTracking, &prButtonGroupHotTracking) ||
@@ -724,8 +775,8 @@ static BOOL HookTaskBtnGroupFunctions()
 	}
 	else
 	{
-		ppButtonGroupStartItemAnimation = (void **)&plp[32];
-		ppButtonGroupHasItemAnimation = (void **)&plp[33];
+		ppButtonGroupStartItemAnimation = (void **)&FUNC_CTaskBtnGroup_StartItemAnimation(plp);
+		ppButtonGroupHasItemAnimation = (void **)&FUNC_CTaskBtnGroup_HasItemAnimation(plp);
 
 		if(
 			!CreateEnableHook(ppButtonGroupStartItemAnimation, ButtonGroupStartItemAnimationHook, &pButtonGroupStartItemAnimation, &prButtonGroupStartItemAnimation) ||
@@ -773,8 +824,8 @@ static BOOL HookSecondaryTaskbarFunctions(LONG_PTR lpSecondaryTaskListLongPtr)
 	// CSecondaryTaskBand::GetUserPreferences, CSecondaryTaskBand::IsHorizontal
 	plp = *(LONG_PTR **)lp;
 
-	ppSecondaryGetUserPreferences = (void **)&plp[DO2(7, 0 /* omitted from public code */)];
-	ppSecondaryIsHorizontal = (void **)&plp[DO2(13, 0 /* omitted from public code */)];
+	ppSecondaryGetUserPreferences = (void **)&FUNC_CSecondaryTaskBand_GetUserPreferences(plp);
+	ppSecondaryIsHorizontal = (void **)&FUNC_CSecondaryTaskBand_IsHorizontal(plp);
 
 	if(PointerRedirectionGetOriginalPtr(ppSecondaryGetUserPreferences) == PointerRedirectionGetOriginalPtr(ppGetUserPreferences))
 	{
@@ -921,6 +972,47 @@ static LONG_PTR __stdcall IsHorizontalHook(LONG_PTR this_ptr)
 	}
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR))pIsHorizontal)(this_ptr);
+
+	hook_proc_call_counter--;
+
+	return lpRet;
+}
+
+static LONG_PTR __stdcall GetIconIdHook(LONG_PTR this_ptr, LONG_PTR *task_group, LONG_PTR *task_item, LONG_PTR var4, LONG_PTR var5)
+{
+	// assert(nWinVersion >= WIN_VERSION_10_T1)
+
+	LONG_PTR lpRet;
+
+	hook_proc_call_counter++;
+
+	// If labels are visible, or for a decombined group, task_item is set,
+	// and each item gets its own icon. In this case we do nothing.
+	//
+	// If labels are hidden, and it's a combined group or a single item,
+	// task_item is not set, and an icon based on the AppId is set.
+	// In this case there's a problem for UWP apps - if more than one such
+	// instance is open, only the first instance gets an icon.
+	// The other instances get a blank icon. We fix it below by replacing the
+	// task group with the task group of the first item of the same AppId on the taskbar.
+	if(task_group && !task_item)
+	{
+		LONG_PTR this_ptr = (LONG_PTR)task_group;
+		LONG_PTR *plp = *(LONG_PTR **)this_ptr;
+
+		// CTaskGroup::IsImmersiveGroup(this)
+		if(FUNC_CTaskGroup_IsImmersiveGroup(plp)(this_ptr))
+		{
+			LONG_PTR **p_task_group, **p_task_group_other;
+			if(FindTaskGroupPairInArrayWithSameAppId(task_group, &p_task_group, &p_task_group_other))
+			{
+				if(p_task_group_other < p_task_group)
+					task_group = *p_task_group_other;
+			}
+		}
+	}
+
+	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, LONG_PTR *, LONG_PTR, LONG_PTR))pGetIconId)(this_ptr, task_group, task_item, var4, var5);
 
 	hook_proc_call_counter--;
 
@@ -1081,7 +1173,18 @@ static LONG_PTR __stdcall CurrentVirtualDesktopChangedHook(LONG_PTR this_ptr, LO
 
 	if(nOptionsEx[OPT_EX_VIRTUAL_DESKTOP_ORDER_FIX])
 	{
-		HideAllTaskbarItems();
+		if(!bHadCurrentVirtualDesktopChangedAnimated)
+		{
+			LONG_PTR* pMainTaskListAnimationManager;
+			ANIMATION_MANAGER_ITEM* lpSeconadryTaskListAnimationManagers;
+			DisableTaskbarsAnimation(&pMainTaskListAnimationManager, &lpSeconadryTaskListAnimationManagers);
+
+			HideAllTaskbarItems();
+
+			RestoreTaskbarsAnimation(pMainTaskListAnimationManager, lpSeconadryTaskListAnimationManagers);
+		}
+		else
+			bHadCurrentVirtualDesktopChangedAnimated = FALSE;
 	}
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR, LONG_PTR))pCurrentVirtualDesktopChanged)(this_ptr, var2, var3);
@@ -1108,6 +1211,8 @@ static LONG_PTR __stdcall CurrentVirtualDesktopChangedAnimatedHook(LONG_PTR this
 		HideAllTaskbarItems();
 
 		RestoreTaskbarsAnimation(pMainTaskListAnimationManager, lpSeconadryTaskListAnimationManagers);
+
+		bHadCurrentVirtualDesktopChangedAnimated = TRUE;
 	}
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR, LONG_PTR))pCurrentVirtualDesktopChangedAnimated)(this_ptr, var2, var3);
@@ -1121,7 +1226,7 @@ static void HideAllTaskbarItems()
 {
 	// assert(nWinVersion >= WIN_VERSION_10_T1)
 
-	LONG_PTR *plp = (LONG_PTR *)*EV_TASK_SW_TASK_GROUPS_HDPA;
+	LONG_PTR *plp = (LONG_PTR *)*EV_TASK_SW_TASK_GROUPS_HDPA();
 	if(plp && (int)plp[0] > 0)
 	{
 		int task_groups_count = (int)plp[0];
@@ -1148,18 +1253,18 @@ static void HideAllTaskbarItems()
 				plp = *(LONG_PTR **)this_ptr;
 
 				// CTaskItem::IsVisibleOnCurrentVirtualDesktop(this)
-				BYTE bIsVisible = ((BYTE(__stdcall *)(LONG_PTR))plp[DO2(0, 0 /* omitted from public code */)])(this_ptr);
+				BYTE bIsVisible = FUNC_CTaskItem_IsVisibleOnCurrentVirtualDesktop(plp)(this_ptr);
 				if(!bIsVisible)
 					continue;
 
 				// CTaskItem::SetVisibleOnCurrentVirtualDesktop(this, bool)
-				((LONG_PTR(__stdcall *)(LONG_PTR, BYTE))plp[DO2(0, 0 /* omitted from public code */)])(this_ptr, 0);
+				FUNC_CTaskItem_SetVisibleOnCurrentVirtualDesktop(plp)(this_ptr, 0);
 
-				this_ptr = *EV_TASK_SW_MULTI_TASK_LIST_REF;
+				this_ptr = *EV_TASK_SW_MULTI_TASK_LIST_REF();
 				plp = *(LONG_PTR **)this_ptr;
 
 				// CTaskListWndMulti::TaskDestroyed(this, ITaskGroup *,ITaskItem *)
-				((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, LONG_PTR *))plp[DO2(0, 0 /* omitted from public code */)])(this_ptr, task_group, task_item);
+				FUNC_CTaskListWndMulti_TaskDestroyed(plp)(this_ptr, task_group, task_item);
 			}
 		}
 	}
@@ -1168,6 +1273,7 @@ static void HideAllTaskbarItems()
 static LONG_PTR __stdcall StartAnimationHook(LONG_PTR var1, void *pObject, int nAnimation)
 {
 	LONG_PTR *button_group;
+	LONG_PTR *task_group;
 	WCHAR *pAppId;
 	int nListValue;
 	BOOL bNoAnimation;
@@ -1181,9 +1287,10 @@ static LONG_PTR __stdcall StartAnimationHook(LONG_PTR var1, void *pObject, int n
 	{
 		button_group = (LONG_PTR *)pObject;
 
-		if((int)button_group[DO2(6, 8)] == 2 && !nOptionsEx[OPT_EX_PINNED_UNGROUPED_ANIMATE_LAUNCH])
+		if((int)button_group[DO2(6, 0 /* omitted from public code */)] == 2 && !nOptionsEx[OPT_EX_PINNED_UNGROUPED_ANIMATE_LAUNCH])
 		{
-			pAppId = *EV_TASKGROUP_APPID(button_group[DO2(3, 4)]);
+			task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
+			pAppId = *EV_TASKGROUP_APPID(task_group);
 
 			if(pAppId && GetAppidListValue(AILIST_GROUPPINNED, pAppId, &nListValue))
 			{
@@ -1473,7 +1580,7 @@ static LONG_PTR __stdcall GetButtonHeightHook(LONG_PTR this_ptr, LONG_PTR var2)
 	return lpRet;
 }
 
-static LONG_PTR __stdcall DismissHoverUIHook(LONG_PTR this_ptr, BOOL bHide)
+static LONG_PTR __stdcall DismissHoverUIHook(LONG_PTR this_ptr, BOOL bHideWithoutAnimation)
 {
 	LONG_PTR lpMMTaskListLongPtr;
 	LONG_PTR lpMMThumbnailLongPtr;
@@ -1498,7 +1605,7 @@ static LONG_PTR __stdcall DismissHoverUIHook(LONG_PTR this_ptr, BOOL bHide)
 		lpRet = 0;
 	}
 	else
-		lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, BOOL))pDismissHoverUI)(this_ptr, bHide);
+		lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, BOOL))pDismissHoverUI)(this_ptr, bHideWithoutAnimation);
 
 	hook_proc_call_counter--;
 
@@ -1771,6 +1878,7 @@ static LONG_PTR __stdcall OnDestinationMenuDismissedHook(LONG_PTR this_ptr)
 
 static LONG_PTR __stdcall DisplayUIHook(LONG_PTR this_ptr, LONG_PTR *button_group, LONG_PTR var3, LONG_PTR var4, DWORD dwFlags)
 {
+	LONG_PTR *task_group;
 	WCHAR *pAppId;
 	int button_group_type;
 	BOOL bDecombineTemporaryShowLabels;
@@ -1792,12 +1900,13 @@ static LONG_PTR __stdcall DisplayUIHook(LONG_PTR this_ptr, LONG_PTR *button_grou
 	{
 		bProcessed = FALSE;
 
-		pAppId = *EV_TASKGROUP_APPID(button_group[DO2(3, 4)]);
+		task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
+		pAppId = *EV_TASKGROUP_APPID(task_group);
 
-		button_group_type = (int)button_group[DO2(6, 8)];
+		button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
 		if(
 			button_group_type == 1 &&
-			(int)((LONG_PTR *)button_group[DO2(5, 7)])[0] > 1 // buttons_count
+			(int)((LONG_PTR *)button_group[DO2(5, 0 /* omitted from public code */)])[0] > 1 // buttons_count
 		)
 		{
 			if(nOptions[OPT_COMBINING_DE_LABELS] == 1)
@@ -2109,13 +2218,13 @@ S_OK if there's a match, E_FAIL otherwise
 	return hrRet;
 }
 
-static BOOL FindTaskGroupPairInArrayWithSameAppId(const LONG_PTR *task_group, LONG_PTR ***pp_task_group, LONG_PTR ***pp_task_group_other)
+static BOOL FindTaskGroupPairInArrayWithSameAppId(LONG_PTR *task_group, LONG_PTR ***pp_task_group, LONG_PTR ***pp_task_group_other)
 {
 	const WCHAR *pszAppId = *EV_TASKGROUP_APPID(task_group);
 	if(!pszAppId || *pszAppId == L'\0')
 		return FALSE;
 
-	LONG_PTR *plp = (LONG_PTR *)*EV_TASK_SW_TASK_GROUPS_HDPA;
+	LONG_PTR *plp = (LONG_PTR *)*EV_TASK_SW_TASK_GROUPS_HDPA();
 	if(!plp || (int)plp[0] == 0)
 		return FALSE;
 
@@ -2191,19 +2300,30 @@ static HWND __stdcall TaskItemGetWindowHook(LONG_PTR *task_item)
 
 	hRetWnd = ((HWND(__stdcall *)(LONG_PTR *))pTaskItemGetWindow)(task_item);
 
-	if(nOptionsEx[OPT_EX_FIX_HANG_REPOSITION])
+	if(bTaskItemGetWindowReturnNull && nDoesWindowMatchCalls == 0)
 	{
-		if((LONG_PTR)hRetWnd & 1)
+		// We use this for a UWP hack.
+		// A CImmersiveApp instance is going to be returned,
+		// save it for later and replace it with NULL.
+		lpTaskItemGetWindowSavedValue = (LONG_PTR)hRetWnd;
+		hRetWnd = NULL;
+	}
+	else
+	{
+		if(nOptionsEx[OPT_EX_FIX_HANG_REPOSITION])
 		{
-			hRetWnd = (HWND)((LONG_PTR)hRetWnd & ~1);
-
-			hGhostWnd = GhostWindowFromHungWindow_(hRetWnd);
-			if(!hGhostWnd)
+			if((LONG_PTR)hRetWnd & 1)
 			{
-				*EV_TASKITEM_WND(task_item) = hRetWnd;
+				hRetWnd = (HWND)((LONG_PTR)hRetWnd & ~1);
+
+				hGhostWnd = GhostWindowFromHungWindow_(hRetWnd);
+				if(!hGhostWnd)
+				{
+					*EV_TASKITEM_WND(task_item) = hRetWnd;
+				}
+				else
+					hRetWnd = hGhostWnd;
 			}
-			else
-				hRetWnd = hGhostWnd;
 		}
 	}
 
@@ -2218,7 +2338,7 @@ static LONG_PTR __stdcall ButtonGroupRemoveTaskItemHook(LONG_PTR *button_group, 
 
 	hook_proc_call_counter++;
 
-	LONG_PTR *task_group = (LONG_PTR *)button_group[DO2(3, 4)];
+	LONG_PTR *task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
 	if(task_group)
 	{
 		DWORD dwFlags = *EV_TASKGROUP_FLAGS(task_group);
@@ -2278,7 +2398,7 @@ static LONG_PTR __stdcall GetIdealSpanHook(LONG_PTR *button_group, LONG_PTR var2
 	dwOldUserPrefSetBits = dwUserPrefSetBits;
 	dwOldUserPrefRemoveBits = dwUserPrefRemoveBits;
 
-	p_button_group_type = (int *)&button_group[DO2(6, 8)];
+	p_button_group_type = (int *)&button_group[DO2(6, 0 /* omitted from public code */)];
 	button_group_type = *p_button_group_type;
 	if(button_group_type == 1 || button_group_type == 3)
 	{
@@ -2350,7 +2470,7 @@ static LONG_PTR __stdcall SetLocationHook(LONG_PTR *button_group, LONG_PTR var2,
 		}
 		else
 		{
-			nTaskbarPos = *EV_TASKBAR_POS;
+			nTaskbarPos = *EV_TASKBAR_POS();
 		}
 
 		if(nTaskbarPos == 1 || nTaskbarPos == 3) // Is taskbar on top/bottom of the screen
@@ -2366,11 +2486,11 @@ static LONG_PTR __stdcall SetLocationHook(LONG_PTR *button_group, LONG_PTR var2,
 				{
 					for(i = 0; i < button_groups_count; i++)
 					{
-						button_group_type = (int)button_groups[i][DO2(6, 8)];
+						button_group_type = (int)button_groups[i][DO2(6, 0 /* omitted from public code */)];
 						if(button_group_type != 1)
 							break;
 
-						plp = (LONG_PTR *)button_groups[i][DO2(5, 7)];
+						plp = (LONG_PTR *)button_groups[i][DO2(5, 0 /* omitted from public code */)];
 
 						buttons_count = (int)plp[0];
 						//buttons = (LONG_PTR **)plp[1];
@@ -2413,7 +2533,7 @@ static LONG_PTR __stdcall SetLocationHook(LONG_PTR *button_group, LONG_PTR var2,
 						rcNew = *prc;
 						prc = &rcNew;
 
-						prcSrcRect = *(RECT **)(button_groups[nIndex][DO2(4, 6)] + sizeof(LONG_PTR));
+						prcSrcRect = *(RECT **)(button_groups[nIndex][DO2(4, 0 /* omitted from public code */)] + sizeof(LONG_PTR));
 
 						prc->left = prcSrcRect->left;
 						prc->right = prcSrcRect->right;
@@ -2453,7 +2573,7 @@ static LONG_PTR __stdcall RenderHook(LONG_PTR *button_group, LONG_PTR var2, LONG
 	dwOldUserPrefSetBits = dwUserPrefSetBits;
 	dwOldUserPrefRemoveBits = dwUserPrefRemoveBits;
 
-	button_group_type = (int)button_group[DO2(6, 8)];
+	button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
 	if(button_group_type == 1 || button_group_type == 3)
 		ButtonGroupSetPrefOnUpdate(button_group, TRUE);
 
@@ -2497,7 +2617,7 @@ static LONG_PTR __stdcall RenderHook2(LONG_PTR *button_group, LONG_PTR var2, LON
 	dwOldUserPrefSetBits = dwUserPrefSetBits;
 	dwOldUserPrefRemoveBits = dwUserPrefRemoveBits;
 
-	button_group_type = (int)button_group[DO2(6, 8)];
+	button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
 	if(button_group_type == 1 || button_group_type == 3)
 		ButtonGroupSetPrefOnUpdate(button_group, TRUE);
 
@@ -2543,10 +2663,10 @@ static BOOL __stdcall ButtonGroupCanGlomHook(LONG_PTR *button_group)
 		selective_combining_hack = 0;
 	}
 
-	button_group_type = (int)button_group[DO2(6, 8)];
+	button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
 	if(
 		button_group_type == 1 &&
-		(int)((LONG_PTR *)button_group[DO2(5, 7)])[0] > 1 // buttons_count
+		(int)((LONG_PTR *)button_group[DO2(5, 0 /* omitted from public code */)])[0] > 1 // buttons_count
 	)
 	{
 		bRet = CheckCombineButtonGroup(button_group);
@@ -2595,6 +2715,7 @@ static BOOL __stdcall ButtonGroupCanGlomHook(LONG_PTR *button_group)
 
 static void ButtonGroupSetPrefOnUpdate(LONG_PTR *button_group, BOOL bDecombineWithoutLabelsHack)
 {
+	LONG_PTR *task_group;
 	WCHAR *pAppId;
 	int button_group_type;
 	LONG_PTR lpMMTaskListLongPtr;
@@ -2604,12 +2725,13 @@ static void ButtonGroupSetPrefOnUpdate(LONG_PTR *button_group, BOOL bDecombineWi
 	LONG_PTR *button_group_tracked;
 	int nLabelListValue;
 
-	pAppId = *EV_TASKGROUP_APPID(button_group[DO2(3, 4)]);
+	task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
+	pAppId = *EV_TASKGROUP_APPID(task_group);
 
-	button_group_type = (int)button_group[DO2(6, 8)];
+	button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
 	if(
 		button_group_type == 1 &&
-		(int)((LONG_PTR *)button_group[DO2(5, 7)])[0] > 1 // buttons_count
+		(int)((LONG_PTR *)button_group[DO2(5, 0 /* omitted from public code */)])[0] > 1 // buttons_count
 	)
 	{
 		// multimonitor environment
@@ -2699,6 +2821,8 @@ static HRESULT __stdcall DrawThemeBackgroundHook(HTHEME hTheme, HDC hdc, int iPa
 
 static LONG_PTR __stdcall ButtonGroupHotTrackingHook(LONG_PTR *button_group, BOOL bNewGroup, int button_index, BOOL bAnimation)
 {
+	// assert(nWinVersion <= WIN_VERSION_811)
+
 	LONG_PTR lpRet;
 
 	hook_proc_call_counter++;
@@ -2715,6 +2839,8 @@ static LONG_PTR __stdcall ButtonGroupHotTrackingHook(LONG_PTR *button_group, BOO
 
 static LONG_PTR __stdcall ButtonGroupHotTrackOutHook(LONG_PTR *button_group, BOOL bAnimation)
 {
+	// assert(nWinVersion <= WIN_VERSION_811)
+
 	LONG_PTR lpRet;
 
 	hook_proc_call_counter++;
@@ -2827,7 +2953,7 @@ static void OnButtonGroupHotTracking(LONG_PTR *button_group, BOOL bNewGroup, int
 
 		if(bNewGroup && nOptions[OPT_COMBINING_DEONHOVER] == 1)
 		{
-			// We set button_group_untracked_decombined here because sometimes 
+			// We set button_group_untracked_decombined here because sometimes
 			// button_group is not set as tracked yet at this stage.
 			// In this case, CanGlom will return FALSE and ButtonGroupCombine will fail.
 			button_group_untracked_decombined = button_group;
@@ -2897,10 +3023,10 @@ static void OnButtonGroupHotTrackOut(LONG_PTR *button_group)
 		else
 		{
 			// Fixes combine on close
-			button_group_type = (int)button_group[DO2(6, 8)];
+			button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
 			if(button_group_type == 1)
 			{
-				plp = (LONG_PTR *)button_group[DO2(5, 7)];
+				plp = (LONG_PTR *)button_group[DO2(5, 0 /* omitted from public code */)];
 
 				button_count = (int)plp[0];
 				if(button_count > 1)
@@ -2909,7 +3035,7 @@ static void OnButtonGroupHotTrackOut(LONG_PTR *button_group)
 
 					if(WindowFromPoint(ptCursor) == hMMTaskListWnd)
 					{
-						prcGroup = *(RECT **)(button_group[DO2(4, 6)] + sizeof(LONG_PTR));
+						prcGroup = *(RECT **)(button_group[DO2(4, 0 /* omitted from public code */)] + sizeof(LONG_PTR));
 						MapWindowPoints(NULL, hMMTaskListWnd, &ptCursor, 1);
 
 						if(PtInRect(prcGroup, ptCursor))
@@ -2960,8 +3086,10 @@ static BOOL __stdcall ShouldShowToolTipHook(LONG_PTR *button_group, LONG_PTR *ta
 
 	hook_proc_call_counter++;
 
-	if(nOptionsEx[OPT_EX_ALWAYS_SHOW_TOOLTIP])
+	if(nOptionsEx[OPT_EX_ALWAYS_SHOW_TOOLTIP] == 1)
 		bRet = TRUE;
+	else if(nOptionsEx[OPT_EX_ALWAYS_SHOW_TOOLTIP] == 2)
+		bRet = FALSE;
 	else
 		bRet = ((BOOL(__stdcall *)(LONG_PTR *, LONG_PTR *))pShouldShowToolTip)(button_group, task_item);
 
@@ -3061,11 +3189,12 @@ static DWORD ManipulateUserPreferences(DWORD dwPreferences, void *pReturnAddress
 			selective_combining_hack = 3;
 	}
 
-	// A hack for selective decombining.
+	// A hack for selective combining.
 	// How to check whether the hack works:
 	// Use "Never Combine" in Taskbar Properties,
 	// and "Combine grouped buttons" in the tweaker.
 	// If the hack doesn't work, the buttons won't combine.
+	// Note: in Windows 10, it only works on a horizontal taskbar.
 	switch(selective_combining_hack)
 	{
 	case 2:
@@ -3089,12 +3218,14 @@ static DWORD ManipulateUserPreferences(DWORD dwPreferences, void *pReturnAddress
 
 static BOOL CheckCombineButtonGroup(LONG_PTR *button_group)
 {
+	LONG_PTR *task_group;
 	WCHAR *pAppId;
 	int nCombineListValue;
 	BOOL bCombine;
 	LONG_PTR lpMMTaskListLongPtr;
 
-	pAppId = *EV_TASKGROUP_APPID(button_group[DO2(3, 4)]);
+	task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
+	pAppId = *EV_TASKGROUP_APPID(task_group);
 
 	if(pAppId && GetAppidListValue(AILIST_COMBINE, pAppId, &nCombineListValue))
 	{
@@ -3142,13 +3273,13 @@ static BOOL ButtonGroupCombine(LONG_PTR *button_group, BOOL bCombine)
 	else
 		lpMMTaskListLongPtr = lpTaskListLongPtr;
 
-	button_group_type = (int)button_group[DO2(6, 8)];
+	button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
 	if(bCombine)
 	{
 		if(button_group_type != 1)
 			return FALSE;
 
-		plp = (LONG_PTR *)button_group[DO2(5, 7)];
+		plp = (LONG_PTR *)button_group[DO2(5, 0 /* omitted from public code */)];
 		buttons_count = (int)plp[0];
 		if(buttons_count < 2)
 			return FALSE;
@@ -3166,7 +3297,7 @@ static BOOL ButtonGroupCombine(LONG_PTR *button_group, BOOL bCombine)
 	dwUserPrefRemoveBits |= 2;
 
 	// CTaskBtnGroup::Glom
-	((LONG_PTR(__stdcall *)(LONG_PTR *, BOOL))plp[DO2(22, 0 /* omitted from public code */)])(button_group, bCombine);
+	FUNC_CTaskBtnGroup_Glom(plp)(button_group, bCombine);
 
 	dwUserPrefRemoveBits = dwOldUserPrefRemoveBits;
 
@@ -3199,17 +3330,17 @@ static BOOL DragWithinGroup(LONG_PTR *button_group_tracked, int button_index_tra
 	LONG_PTR *task_item_from, *task_item_to;
 	int i;
 
-	button_group_type = (int)button_group_tracked[DO2(6, 8)];
+	button_group_type = (int)button_group_tracked[DO2(6, 0 /* omitted from public code */)];
 	if(button_group_type == 1 || button_group_type == 3)
 	{
-		plp = (LONG_PTR *)button_group_tracked[DO2(5, 7)];
+		plp = (LONG_PTR *)button_group_tracked[DO2(5, 0 /* omitted from public code */)];
 
 		buttons_count = (int)plp[0];
 		buttons = (LONG_PTR **)plp[1];
 
 		for(i = 0; i < buttons_count; i++)
 		{
-			task_item_from = (LONG_PTR *)buttons[i][DO2(3, 4)];
+			task_item_from = (LONG_PTR *)buttons[i][DO2(3, 0 /* omitted from public code */)];
 
 			if(GetTaskItemWnd(task_item_from) == hDragWithinGroupsWnd)
 			{
@@ -3217,8 +3348,8 @@ static BOOL DragWithinGroup(LONG_PTR *button_group_tracked, int button_index_tra
 
 				if(button_index_tracked >= 0 && button_index_tracked < buttons_count && i != button_index_tracked)
 				{
-					task_group = (LONG_PTR *)button_group_tracked[DO2(3, 4)];
-					task_item_to = (LONG_PTR *)buttons[button_index_tracked][DO2(3, 4)];
+					task_group = (LONG_PTR *)button_group_tracked[DO2(3, 0 /* omitted from public code */)];
+					task_item_to = (LONG_PTR *)buttons[button_index_tracked][DO2(3, 0 /* omitted from public code */)];
 
 					TaskbarMoveTaskInGroup(task_group, task_item_from, task_item_to);
 				}
@@ -3233,15 +3364,17 @@ static BOOL DragWithinGroup(LONG_PTR *button_group_tracked, int button_index_tra
 
 static BOOL DragBetweenGroups(LONG_PTR *button_group_tracked)
 {
+	LONG_PTR *task_group;
 	WCHAR *pAppId;
 	int button_group_type;
 	int nListValue;
 
-	pAppId = *EV_TASKGROUP_APPID(button_group_tracked[DO2(3, 4)]);
+	task_group = (LONG_PTR *)button_group_tracked[DO2(3, 0 /* omitted from public code */)];
+	pAppId = *EV_TASKGROUP_APPID(task_group);
 	if(!pAppId)
 		return FALSE;
 
-	button_group_type = (int)button_group_tracked[DO2(6, 8)];
+	button_group_type = (int)button_group_tracked[DO2(6, 0 /* omitted from public code */)];
 	if(button_group_type == 1 || button_group_type == 3)
 	{
 		if(!IsAppIdARandomGroup(pAppId))
@@ -3318,7 +3451,7 @@ static LONG_PTR *ButtonGroupNextToMousePos(LONG_PTR lpMMTaskListLongPtr, HWND hE
 	}
 	else
 	{
-		nTaskbarPos = *EV_TASKBAR_POS;
+		nTaskbarPos = *EV_TASKBAR_POS();
 	}
 
 	bVertical = FALSE;
@@ -3345,7 +3478,7 @@ static LONG_PTR *ButtonGroupNextToMousePos(LONG_PTR lpMMTaskListLongPtr, HWND hE
 	// Skip all buttons which are currently not visible (e.g. multipage taskbar)
 	for(i = 0; i < button_groups_count; i++)
 	{
-		prcGroup = *(RECT **)(button_groups[i][DO2(4, 6)] + sizeof(LONG_PTR));
+		prcGroup = *(RECT **)(button_groups[i][DO2(4, 0 /* omitted from public code */)] + sizeof(LONG_PTR));
 		ptGroupCenter.x = prcGroup->left + (prcGroup->right - prcGroup->left) / 2;
 		ptGroupCenter.y = prcGroup->top + (prcGroup->bottom - prcGroup->top) / 2;
 		if(PtInRect(&rcVisibleTaskList, ptGroupCenter))
@@ -3360,23 +3493,23 @@ static LONG_PTR *ButtonGroupNextToMousePos(LONG_PTR lpMMTaskListLongPtr, HWND hE
 	{
 		if(hExcludeWnd)
 		{
-			button_group_type = (int)button_groups[i][DO2(6, 8)];
+			button_group_type = (int)button_groups[i][DO2(6, 0 /* omitted from public code */)];
 			if(button_group_type == 1 || button_group_type == 3)
 			{
-				plp = (LONG_PTR *)button_groups[i][DO2(5, 7)];
+				plp = (LONG_PTR *)button_groups[i][DO2(5, 0 /* omitted from public code */)];
 
 				buttons_count = (int)plp[0];
 				if(buttons_count == 1)
 				{
 					buttons = (LONG_PTR **)plp[1];
-					task_item = (LONG_PTR *)buttons[0][DO2(3, 4)];
+					task_item = (LONG_PTR *)buttons[0][DO2(3, 0 /* omitted from public code */)];
 					if(GetTaskItemWnd(task_item) == hExcludeWnd)
 						continue; // skip button group
 				}
 			}
 		}
 
-		prcGroup = *(RECT **)(button_groups[i][DO2(4, 6)] + sizeof(LONG_PTR));
+		prcGroup = *(RECT **)(button_groups[i][DO2(4, 0 /* omitted from public code */)] + sizeof(LONG_PTR));
 		ptGroupCenter.x = prcGroup->left + (prcGroup->right - prcGroup->left) / 2;
 		ptGroupCenter.y = prcGroup->top + (prcGroup->bottom - prcGroup->top) / 2;
 		if(!PtInRect(&rcVisibleTaskList, ptGroupCenter))
@@ -3525,7 +3658,7 @@ static void OnButtonGroupInserted(LONG_PTR lpMMTaskListLongPtr, int nButtonGroup
 	LONG_PTR **button_groups = (LONG_PTR **)plp[1];
 	LONG_PTR *button_group = button_groups[nButtonGroupIndex];
 
-	plp = (LONG_PTR *)button_group[DO2(5, 7)];
+	plp = (LONG_PTR *)button_group[DO2(5, 0 /* omitted from public code */)];
 	if(!plp)
 		return;
 
@@ -3534,7 +3667,7 @@ static void OnButtonGroupInserted(LONG_PTR lpMMTaskListLongPtr, int nButtonGroup
 	if(buttons_count == 0)
 		return;
 
-	LONG_PTR *task_group = (LONG_PTR *)button_group[DO2(3, 4)];
+	LONG_PTR *task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
 	plp = (LONG_PTR *)task_group[4];
 	if(!plp)
 		return;
@@ -3553,7 +3686,7 @@ static void OnButtonGroupInserted(LONG_PTR lpMMTaskListLongPtr, int nButtonGroup
 	void **ppTaskItemRelease = (void **)&plp[2];
 	PointerRedirectionAdd(ppTaskItemRelease, TaskItemReleaseHook, &prTaskItemRelease);
 
-	LONG_PTR lpAppViewMgr = *EV_TASK_SW_APP_VIEW_MGR;
+	LONG_PTR lpAppViewMgr = *EV_TASK_SW_APP_VIEW_MGR();
 	SRWLOCK *pArrayLock = EV_APP_VIEW_MGR_APP_ARRAY_LOCK(lpAppViewMgr);
 
 	AcquireSRWLockExclusive(pArrayLock);
@@ -3577,12 +3710,12 @@ static void OnButtonGroupInserted(LONG_PTR lpMMTaskListLongPtr, int nButtonGroup
 		task_item_virtual_desktop_released = NULL;
 
 		LONG_PTR this_ptr = (LONG_PTR)(lpTaskSwLongPtr + 0 /* omitted from public code */);
-		LONG_PTR *plp = *(LONG_PTR **)this_ptr;
+		plp = *(LONG_PTR **)this_ptr;
 
 		ReleaseSRWLockExclusive(pArrayLock);
 
-		// CTaskBand::ViewVirtualDesktopChanged
-		((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR))plp[DO2(0, 0 /* omitted from public code */)])(this_ptr, lpArray[i]);
+		// CTaskBand::ViewVirtualDesktopChanged(this, application_view)
+		FUNC_CTaskBand_ViewVirtualDesktopChanged(plp)(this_ptr, lpArray[i]);
 
 		AcquireSRWLockExclusive(pArrayLock);
 
@@ -3604,7 +3737,7 @@ static void OnButtonGroupInserted(LONG_PTR lpMMTaskListLongPtr, int nButtonGroup
 				for(int j = nButtonGroupIndex + 1; j < button_groups_count; j++)
 				{
 					LONG_PTR *check_button_group = button_groups[j];
-					LONG_PTR *check_task_group = (LONG_PTR *)check_button_group[DO2(3, 4)];
+					LONG_PTR *check_task_group = (LONG_PTR *)check_button_group[DO2(3, 0 /* omitted from public code */)];
 					if(task_group_virtual_desktop_released == check_task_group)
 					{
 						// The current item in lpArray is from the same group
@@ -3625,7 +3758,7 @@ static void OnButtonGroupInserted(LONG_PTR lpMMTaskListLongPtr, int nButtonGroup
 		for(int j = 0; j < buttons_count; j++)
 		{
 			LONG_PTR *button = buttons[j];
-			LONG_PTR *task_item = (LONG_PTR *)button[DO2(3, 4)];
+			LONG_PTR *task_item = (LONG_PTR *)button[DO2(3, 0 /* omitted from public code */)];
 
 			if(task_item_virtual_desktop_released == task_item)
 			{
@@ -3755,10 +3888,10 @@ void ComFuncTaskListBeforeLButtonUp(LONG_PTR lpMMTaskListLongPtr, DWORD *pdwOldU
 		LONG_PTR *button_group = *EV_MM_TASKLIST_PRESSED_BUTTON_GROUP(lpMMTaskListLongPtr);
 		if(button_group)
 		{
-			int button_group_type = (int)button_group[DO2(6, 8)];
+			int button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
 			if(button_group_type == 1)
 			{
-				LONG_PTR *plp = (LONG_PTR *)button_group[DO2(5, 7)];
+				LONG_PTR *plp = (LONG_PTR *)button_group[DO2(5, 0 /* omitted from public code */)];
 
 				int buttons_count = (int)plp[0];
 				LONG_PTR **buttons = (LONG_PTR **)plp[1];
@@ -3824,11 +3957,11 @@ BOOL ComFuncTaskListRightDragInit(LONG_PTR lpMMTaskListLongPtr)
 	if(button_index_tracked < 0)
 		return FALSE;
 
-	button_group_type = (int)button_group_tracked[DO2(6, 8)];
+	button_group_type = (int)button_group_tracked[DO2(6, 0 /* omitted from public code */)];
 	if(button_group_type != 1)
 		return FALSE;
 
-	plp = (LONG_PTR *)button_group_tracked[DO2(5, 7)];
+	plp = (LONG_PTR *)button_group_tracked[DO2(5, 0 /* omitted from public code */)];
 	buttons_count = (int)plp[0];
 	if(buttons_count - 1 < button_index_tracked)
 		return FALSE;
@@ -3872,17 +4005,19 @@ void ComFuncTaskListCaptureChanged(LONG_PTR lpMMTaskListLongPtr)
 BOOL ComFuncTaskListMouseWheel(LONG_PTR lpMMTaskListLongPtr, short delta)
 {
 	LONG_PTR *button_group_tracked;
+	LONG_PTR *task_group;
 	WCHAR *pAppId;
 	int nLabelingListValue;
 	BOOL bMemoryOnly;
 
-	if(nOptionsEx[OPT_EX_RIGHT_DRAG_TOGGLE_LABELS] && 
+	if(nOptionsEx[OPT_EX_RIGHT_DRAG_TOGGLE_LABELS] &&
 		nOptions[OPT_GROUPING_RIGHTDRAG] == 1 && hDragWithinGroupsWnd)
 	{
 		button_group_tracked = TaskbarGetTrackedButtonGroup(lpMMTaskListLongPtr);
 		if(button_group_tracked)
 		{
-			pAppId = *EV_TASKGROUP_APPID(button_group_tracked[DO2(3, 4)]);
+			task_group = (LONG_PTR *)button_group_tracked[DO2(3, 0 /* omitted from public code */)];
+			pAppId = *EV_TASKGROUP_APPID(task_group);
 			if(pAppId)
 			{
 				if(delta > 0)
@@ -3917,10 +4052,11 @@ void ComFuncThumbnailWndBeforePaint(LONG_PTR lpMMThumbnailLongPtr)
 		{
 			POINT pt = { -13, -37 }; // 1337 \m/
 
-			// ThumbIndexFromPoint(this, ppt)
 			LONG_PTR this_ptr = (LONG_PTR)(lpMMThumbnailLongPtr + DO2_3264(0x10, 0x20, 0, 0 /* omitted from public code */));
 			LONG_PTR *plp = *(LONG_PTR **)this_ptr;
-			((int(__stdcall *)(LONG_PTR, POINT *))plp[DO2(13, 14)])(this_ptr, &pt);
+
+			// CTaskListThumbnailWnd::ThumbIndexFromPoint(this, ppt)
+			FUNC_CTaskListThumbnailWnd_ThumbIndexFromPoint(plp)(this_ptr, &pt);
 
 			nThumbnailListReverseHack = -3;
 		}
@@ -3967,11 +4103,11 @@ BOOL ComFuncMoveDetachedToCursor()
 	button_groups_count = (int)plp[0];
 	button_groups = (LONG_PTR **)plp[1];
 
-	button_group_type = (int)button_groups[button_groups_count - 1][DO2(6, 8)];
+	button_group_type = (int)button_groups[button_groups_count - 1][DO2(6, 0 /* omitted from public code */)];
 	if(button_group_type != 1)
 		return FALSE;
 
-	plp = (LONG_PTR *)button_groups[button_groups_count - 1][DO2(5, 7)];
+	plp = (LONG_PTR *)button_groups[button_groups_count - 1][DO2(5, 0 /* omitted from public code */)];
 	buttons_count = (int)plp[0];
 	buttons = (LONG_PTR **)plp[1];
 
@@ -4067,17 +4203,17 @@ static BOOL MMMoveNearMatching(LONG_PTR lpMMTaskListLongPtr, HWND hButtonWnd)
 
 		if(button_groups_count > 1)
 		{
-			button_group_type = (int)button_groups[button_groups_count - 1][DO2(6, 8)];
+			button_group_type = (int)button_groups[button_groups_count - 1][DO2(6, 0 /* omitted from public code */)];
 			if(button_group_type == 1)
 			{
-				plp = (LONG_PTR *)button_groups[button_groups_count - 1][DO2(5, 7)];
+				plp = (LONG_PTR *)button_groups[button_groups_count - 1][DO2(5, 0 /* omitted from public code */)];
 
 				buttons_count = (int)plp[0];
 				buttons = (LONG_PTR **)plp[1];
 
 				if(buttons_count == 1 && GetButtonWnd(buttons[0]) == hButtonWnd)
 				{
-					task_group = (LONG_PTR *)button_groups[button_groups_count - 1][DO2(3, 4)];
+					task_group = (LONG_PTR *)button_groups[button_groups_count - 1][DO2(3, 0 /* omitted from public code */)];
 
 					pItemIdList = (ITEMIDLIST *)task_group[6];
 
@@ -4086,7 +4222,7 @@ static BOOL MMMoveNearMatching(LONG_PTR lpMMTaskListLongPtr, HWND hButtonWnd)
 					{
 						for(i = (button_groups_count - 1) - 1; i >= 0; i--)
 						{
-							task_group = (LONG_PTR *)button_groups[i][DO2(3, 4)];
+							task_group = (LONG_PTR *)button_groups[i][DO2(3, 0 /* omitted from public code */)];
 
 							hr = ((HRESULT(__stdcall *)(LONG_PTR *, HWND, ITEMIDLIST *, WCHAR *, int *, LONG_PTR **))pDoesWindowMatch)
 								(task_group, hButtonWnd, pItemIdList, pAppId, &nMatch, NULL);
@@ -4157,4 +4293,15 @@ void ComFuncResetLastActiveTaskItem()
 BOOL ComFuncIsInGetIdealSpan()
 {
 	return bInGetIdealSpan;
+}
+
+void ComFuncSetTaskItemGetWindowReturnNull(BOOL bSet)
+{
+	bTaskItemGetWindowReturnNull = bSet;
+	lpTaskItemGetWindowSavedValue = 0;
+}
+
+LONG_PTR ComFuncGetSavedTaskItemGetWindow()
+{
+	return lpTaskItemGetWindowSavedValue;
 }

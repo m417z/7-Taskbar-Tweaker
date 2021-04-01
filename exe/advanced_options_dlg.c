@@ -386,7 +386,7 @@ static BOOL OnListViewNotify(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
 	switch(phdr->code)
 	{
 	case NM_DBLCLK:
-		if(ListView_GetSelectedCount(phdr->hwndFrom) == 1 && 
+		if(ListView_GetSelectedCount(phdr->hwndFrom) == 1 &&
 			((NMITEMACTIVATE *)lParam)->iItem == ListView_GetNextItem(phdr->hwndFrom, -1, LVNI_SELECTED))
 		{
 			switch(((NMITEMACTIVATE *)lParam)->iSubItem)
@@ -930,7 +930,7 @@ static BOOL ApplyChanges(HWND hWnd, UINT uNotifyMsg)
 
 	if(GetFocus() == GetDlgItem(hWnd, IDC_ADV_APPLY))
 	{
-		TabCtrl_GetItem(GetDlgItem(hWnd, IDC_ADV_TAB), 
+		TabCtrl_GetItem(GetDlgItem(hWnd, IDC_ADV_TAB),
 			TabCtrl_GetCurSel(GetDlgItem(hWnd, IDC_ADV_TAB)), &tcitem);
 
 		SendMessage(hWnd, WM_NEXTDLGCTL, (WPARAM)tcitem.extra.hListViewWnd, TRUE);

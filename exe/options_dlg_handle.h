@@ -18,5 +18,6 @@ typedef struct {
 void InitDlg(HWND hWnd, int pOptions[OPTS_COUNT]);
 int MeasureStringWidthForCombo(HWND hComboWnd, WCHAR *pString);
 BOOL OptionsUpdFromDlg(HWND hWnd, int nCtrlId, int nNotificationCode, int pOptions[OPTS_COUNT]);
+void EnableOptions(HWND hWnd, BOOL bEnable);
 
 #endif // _OPTIONS_DLG_HANDLE_H_

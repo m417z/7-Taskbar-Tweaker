@@ -72,6 +72,9 @@
     <ClCompile Include="minhook_preloaded.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="explorer_vars.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="functions.h">

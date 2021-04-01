@@ -223,7 +223,7 @@ DWORD WndProcInit(int pOptions[OPTS_COUNT])
 
 	lpTaskbarLongPtr = GetWindowLongPtr(hTaskbarWnd, 0);
 
-	hTaskBandWnd = *EV_TASKBAR_TASKBAND_WND;
+	hTaskBandWnd = *EV_TASKBAR_TASKBAND_WND();
 	if(!hTaskBandWnd)
 		return LIB_ERR_WND_TASKBAND;
 
@@ -235,7 +235,7 @@ DWORD WndProcInit(int pOptions[OPTS_COUNT])
 
 	lpTaskSwLongPtr = GetWindowLongPtr(hTaskSwWnd, 0);
 
-	hTrayNotifyWnd = *EV_TASKBAR_TRAY_NOTIFY_WND;
+	hTrayNotifyWnd = *EV_TASKBAR_TRAY_NOTIFY_WND();
 	if(!hTrayNotifyWnd)
 		return LIB_ERR_WND_TRAYNOTIFY;
 
@@ -284,7 +284,7 @@ DWORD WndProcInit(int pOptions[OPTS_COUNT])
 
 	if(nWinVersion == WIN_VERSION_7)
 	{
-		hW7StartBtnWnd = *EV_TASKBAR_START_BTN_WND;
+		hW7StartBtnWnd = *EV_TASKBAR_START_BTN_WND();
 		if(!hW7StartBtnWnd)
 			return LIB_ERR_WND_W7STARTBTN;
 	}
@@ -415,6 +415,8 @@ static DWORD InitFromExplorerThread(int pOptions[OPTS_COUNT])
 								{
 									if(MH_ApplyQueued() == MH_OK)
 									{
+										SndVolInit();
+
 										int nLoadedOptionsEx[OPTS_EX_COUNT];
 										LoadOptionsEx(nLoadedOptionsEx);
 
@@ -546,6 +548,7 @@ static void UninitializeTweakerComponents(BOOL bDontRefreshTaskbar)
 			MMTaskListRecomputeLayout();
 	}
 
+	SndVolUninit();
 	DPAFuncHook_Exit();
 	ComFuncHook_Exit();
 	FreeAppidLists();
@@ -596,7 +599,7 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 		nRefreshTaskbar = 0;
 
 	// Taskbar position and initial min width
-	nTaskbarPos = *EV_TASKBAR_POS;
+	nTaskbarPos = *EV_TASKBAR_POS();
 	nInitialMinWidth = GetTaskbarMinWidth();
 
 	// Clean up for turned off options
@@ -691,12 +694,12 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 
 			if(nWinVersion >= WIN_VERSION_10_T1)
 			{
-				LONG_PTR lp = *EV_TASKBAR_START_BTN_LONG_PTR;
+				LONG_PTR lp = *EV_TASKBAR_START_BTN_LONG_PTR();
 				// lp can be NULL on shutdown
 				hStartBtnWnd = lp ? *EV_START_BUTTON_HWND(lp) : NULL;
 			}
 			else
-				hStartBtnWnd = *EV_TASKBAR_START_BTN_WND;
+				hStartBtnWnd = *EV_TASKBAR_START_BTN_WND();
 
 			if(hStartBtnWnd)
 				ShowWindow(hStartBtnWnd, nCmdShow);
@@ -823,11 +826,11 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 
 		if(nOldOptionsEx[OPT_EX_DISABLE_TOPMOST] == 2)
 		{
-			*EV_TASKBAR_TOPMOST_EX_FLAG = FALSE;
+			*EV_TASKBAR_TOPMOST_EX_FLAG() = FALSE;
 		}
 		else if(pNewOptionsEx[OPT_EX_DISABLE_TOPMOST] == 2)
 		{
-			*EV_TASKBAR_TOPMOST_EX_FLAG = TRUE;
+			*EV_TASKBAR_TOPMOST_EX_FLAG() = TRUE;
 		}
 	}
 
@@ -1052,7 +1055,7 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 			{
 				if(nNewMinTaskbarWidth > 0 && nNewMinTaskbarWidth < rc.right - rc.left)
 				{
-					BOOL *pbIsUnlocked = EV_TASKBAR_UNLOCKED_FLAG;
+					BOOL *pbIsUnlocked = EV_TASKBAR_UNLOCKED_FLAG();
 					BOOL bWasLocked = FALSE;
 					if(!*pbIsUnlocked)
 					{
@@ -1095,9 +1098,9 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 					nOldOptionsEx[OPT_EX_NO_START_BTN_SPACING] != pNewOptionsEx[OPT_EX_NO_START_BTN_SPACING]
 				) &&
 				(nWinVersion == WIN_VERSION_7 || (nWinVersion >= WIN_VERSION_81 && nWinVersion <= WIN_VERSION_811))
-			) || 
+			) ||
 			(
-				(nOldOptionsEx[OPT_EX_DISABLE_TOPMOST] != pNewOptionsEx[OPT_EX_DISABLE_TOPMOST]) && 
+				(nOldOptionsEx[OPT_EX_DISABLE_TOPMOST] != pNewOptionsEx[OPT_EX_DISABLE_TOPMOST]) &&
 				(nOldOptionsEx[OPT_EX_DISABLE_TOPMOST] == 2 || pNewOptionsEx[OPT_EX_DISABLE_TOPMOST] == 2)
 			)
 		)
@@ -1159,13 +1162,13 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 			if(rc.left == 0 && rc.top == 0)
 			{
 				// Here we fix the following issue:
-				// If the taskbar is on the left, Windows "optimizes" stuff by not 
+				// If the taskbar is on the left, Windows "optimizes" stuff by not
 				// updating the positions of the search/multitasking/back buttons.
 				// Therefore, we change them to zeros to force the update.
 
 				LONG_PTR lp;
 
-				lp = *EV_TASKBAR_SEARCH_LONG_PTR;
+				lp = *EV_TASKBAR_SEARCH_LONG_PTR();
 				if(lp)
 				{
 					HWND hSearchBtnWnd = *EV_TRAY_BUTTON_HWND(lp);
@@ -1174,7 +1177,7 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 
 				if(nWinVersion >= WIN_VERSION_10_19H1)
 				{
-					lp = *EV_TASKBAR_CORTANA_LONG_PTR;
+					lp = *EV_TASKBAR_CORTANA_LONG_PTR();
 					if(lp)
 					{
 						HWND hCortanaBtnWnd = *EV_TRAY_BUTTON_HWND(lp);
@@ -1182,14 +1185,14 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 					}
 				}
 
-				lp = *EV_TASKBAR_MULTITASKING_LONG_PTR;
+				lp = *EV_TASKBAR_MULTITASKING_LONG_PTR();
 				if(lp)
 				{
 					HWND hMultitaskBtnWnd = *EV_TRAY_BUTTON_HWND(lp);
 					SetWindowPos(hMultitaskBtnWnd, NULL, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOACTIVATE);
 				}
 
-				lp = *EV_TASKBAR_BACK_LONG_PTR;
+				lp = *EV_TASKBAR_BACK_LONG_PTR();
 				if(lp)
 				{
 					HWND hBackBtnWnd = *EV_TRAY_BUTTON_HWND(lp);
@@ -1333,14 +1336,14 @@ static LRESULT CALLBACK NewTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPAR
 
 		if(nOptionsEx[OPT_EX_NO_WIDTH_LIMIT] && nWinVersion == WIN_VERSION_7)
 		{
-			switch(*EV_TASKBAR_POS)
+			switch(*EV_TASKBAR_POS())
 			{
 			case 0: // Is taskbar on left of the screen
 			case 2: // Is taskbar on right of the screen
-				if(*EV_TASKBAR_UNLOCKED_FLAG) // Is taskbar unlocked?
+				if(*EV_TASKBAR_UNLOCKED_FLAG()) // Is taskbar unlocked?
 				{
-					BOOL *pboolAutoposFlag = EV_TASKBAR_AUTOPOS_FLAG; // Is taskbar NOT getting manually positioned
-					BYTE *pbyteAutoposFlag = EV_TASKBAR_AUTOPOS_FLAG_BYTE;
+					BOOL *pboolAutoposFlag = EV_TASKBAR_AUTOPOS_FLAG(); // Is taskbar NOT getting manually positioned
+					BYTE *pbyteAutoposFlag = EV_TASKBAR_AUTOPOS_FLAG_BYTE();
 					if(!(nWinVersion <= WIN_VERSION_811 ? *pboolAutoposFlag : *pbyteAutoposFlag))
 					{
 						if(nWinVersion <= WIN_VERSION_811)
@@ -1368,7 +1371,7 @@ static LRESULT CALLBACK NewTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPAR
 	case WM_WINDOWPOSCHANGED:
 		if(!(((WINDOWPOS *)lParam)->flags & SWP_NOSIZE) && nOptionsEx[OPT_EX_NO_WIDTH_LIMIT])
 		{
-			switch(*EV_TASKBAR_POS)
+			switch(*EV_TASKBAR_POS())
 			{
 			case 0: // Is taskbar on left of the screen
 			case 2: // Is taskbar on right of the screen
@@ -1585,7 +1588,7 @@ static LRESULT CALLBACK NewMMTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 
 			if(nOptions[OPT_OTHER_EXTRAEMPTY] == 1)
 			{
-				switch(*EV_TASKBAR_POS)
+				switch(*EV_TASKBAR_POS())
 				{
 				case 1: // Is taskbar on top of the screen
 				case 3: // Is taskbar on bottom of the screen
@@ -1617,7 +1620,7 @@ static LRESULT CALLBACK NewMMTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 				}
 				else
 				{
-					nTaskbarPos = *EV_TASKBAR_POS;
+					nTaskbarPos = *EV_TASKBAR_POS();
 				}
 
 				pt.x = GET_X_LPARAM(lParam);
@@ -1877,7 +1880,7 @@ static LRESULT CALLBACK NewMMTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 		if(nWinVersion == WIN_VERSION_7 && nOptionsEx[OPT_EX_W7_TASKLIST_HTCLIENT])
 		{
 			// If result is HTCAPTION and taskbar is locked
-			if(result == HTCAPTION && !*EV_TASKBAR_UNLOCKED_FLAG)
+			if(result == HTCAPTION && !*EV_TASKBAR_UNLOCKED_FLAG())
 			{
 				pt.x = GET_X_LPARAM(lParam);
 				pt.y = GET_Y_LPARAM(lParam);
@@ -1886,7 +1889,7 @@ static LRESULT CALLBACK NewMMTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 
 				if(nOptions[OPT_OTHER_EXTRAEMPTY] == 1)
 				{
-					switch(*EV_TASKBAR_POS)
+					switch(*EV_TASKBAR_POS())
 					{
 					case 1: // Is taskbar on top of the screen
 					case 3: // Is taskbar on bottom of the screen
@@ -1906,8 +1909,8 @@ static LRESULT CALLBACK NewMMTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 
 	case WM_PRINTCLIENT:
 	case WM_PAINT:
-		if(nWinVersion == WIN_VERSION_7 && 
-			nOptionsEx[OPT_EX_DISABLE_TASKBAR_TRANSPARENCY] == 2 && 
+		if(nWinVersion == WIN_VERSION_7 &&
+			nOptionsEx[OPT_EX_DISABLE_TASKBAR_TRANSPARENCY] == 2 &&
 			!bDrawThemeBackgroundTaskbarHooked)
 		{
 			bDrawThemeBackgroundTaskbarHooked = TRUE;
@@ -2007,7 +2010,7 @@ static LRESULT CALLBACK NewTaskBandProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 					else
 						nSpacing = 0;
 
-					nTaskbarPos = *EV_TASKBAR_POS;
+					nTaskbarPos = *EV_TASKBAR_POS();
 				}
 				else // Secondary taskbar (multimonitor environment)
 				{
@@ -2050,9 +2053,9 @@ static LRESULT CALLBACK NewTaskBandProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 
 				if(hWnd == hTaskBandWnd)
 				{
-					nTaskbarPos = *EV_TASKBAR_POS;
+					nTaskbarPos = *EV_TASKBAR_POS();
 
-					LONG_PTR lp = *EV_TASKBAR_START_BTN_LONG_PTR;
+					LONG_PTR lp = *EV_TASKBAR_START_BTN_LONG_PTR();
 					hStartBtnWnd = *EV_START_BUTTON_HWND(lp);
 				}
 				else // Secondary taskbar (multimonitor environment)
@@ -2120,6 +2123,7 @@ static LRESULT CALLBACK NewTaskSwProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 	{
 	case 0x043A: // Calls CTaskBand::_HandleChangeNotify
 	case 0x0446: // Calls CTaskBand::_EnumPinnedItems, related to loading immersive pinned item icons
+	case 0x0452: // Calls CTaskBand::_HandleSyncDisplayChange, icons might be reloaded here on DPI change, make sure the large icons are loaded
 	case 0x0467: // Related to loading immersive app icons
 		nMulDivHookLargeIconsCounter++;
 		result = DefSubclassProc(hWnd, uMsg, wParam, lParam);
@@ -2173,13 +2177,6 @@ static LRESULT CALLBACK NewTaskSwProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 			result = 0;
 		break;
 
-	case 0x0452: // Calls CTaskBand::_HandleSyncDisplayChange
-		// Icons might be reloaded here on DPI change, make sure the large icons are loaded.
-		nMulDivHookLargeIconsCounter++;
-		result = DefSubclassProc(hWnd, uMsg, wParam, lParam);
-		nMulDivHookLargeIconsCounter--;
-		break;
-
 	case 0x0454: // Button destroy
 		result = DefSubclassProc(hWnd, uMsg, wParam, lParam);
 
@@ -2189,7 +2186,7 @@ static LRESULT CALLBACK NewTaskSwProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 	case WM_WINDOWPOSCHANGING:
 		if(nOptions[OPT_OTHER_EXTRAEMPTY] == 1 && !(((WINDOWPOS *)lParam)->flags & SWP_NOSIZE))
 		{
-			switch(*EV_TASKBAR_POS)
+			switch(*EV_TASKBAR_POS())
 			{
 			case 1: // Is taskbar on top of the screen
 			case 3: // Is taskbar on bottom of the screen
@@ -2204,7 +2201,7 @@ static LRESULT CALLBACK NewTaskSwProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 		break;
 
 	default:
-		uSysFrostedWindow = *EV_TASK_SW_SYS_FROSTED_WINDOW_MSG;
+		uSysFrostedWindow = *EV_TASK_SW_SYS_FROSTED_WINDOW_MSG();
 		if(uSysFrostedWindow && uMsg == uSysFrostedWindow)
 		{
 			result = 1;
@@ -2276,7 +2273,7 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 					button_group = TaskbarGetTrackedButtonGroup(lpMMTaskListLongPtr);
 					if(button_group)
 					{
-						button_group_type = (int)button_group[DO2(6, 8)];
+						button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
 						if(button_group_type == 2)
 						{
 							DefSubclassProc(hWnd, WM_LBUTTONDOWN, wParam, lParam);
@@ -2418,7 +2415,7 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 					button_group = *EV_MM_TASKLIST_PRESSED_BUTTON_GROUP(lpMMTaskListLongPtr);
 					if(button_group)
 					{
-						button_group_type = (int)button_group[DO2(6, 8)];
+						button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
 						if(button_group_type == 2) // Pinned
 						{
 							if(nOptions[OPT_PINNED_DBLCLICK] == 1 && !(wParam & MK_SHIFT))
@@ -2501,7 +2498,7 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 						button_group = *EV_MM_TASKLIST_PRESSED_BUTTON_GROUP(lpMMTaskListLongPtr);
 						if(button_group)
 						{
-							button_group_type = (int)button_group[DO2(6, 8)];
+							button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
 							if(button_group_type == 2) // Pinned
 							{
 								if(nOptions[OPT_PINNED_DBLCLICK] == 1)
@@ -2591,7 +2588,7 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 
 					if(button_group)
 					{
-						button_group_type = (int)button_group[DO2(6, 8)];
+						button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
 						if(button_group_type == 1 || button_group_type == 3)
 						{
 							switch(nOption)
@@ -2753,7 +2750,7 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 					}
 					else
 					{
-						nTaskbarPos = *EV_TASKBAR_POS;
+						nTaskbarPos = *EV_TASKBAR_POS();
 					}
 
 					bMinimize = (GET_WHEEL_DELTA_WPARAM(wParam) < 0);
@@ -2988,7 +2985,7 @@ static LRESULT CALLBACK NewThumbnailProc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 				}
 				else
 				{
-					nTaskbarPos = *EV_TASKBAR_POS;
+					nTaskbarPos = *EV_TASKBAR_POS();
 				}
 
 				bMinimize = (GET_WHEEL_DELTA_WPARAM(wParam) < 0);
@@ -3642,9 +3639,8 @@ static LRESULT CALLBACK NewW7StartButtonProc(HWND hWnd, UINT uMsg, WPARAM wParam
 			LONG_PTR lpW7StartMenu;
 			SIZE *pszW7StartBtnSize;
 
-			lpW7StartMenu = (LONG_PTR)EV_TASKBAR_W7_START_BTN_CLASS;
+			lpW7StartMenu = (LONG_PTR)EV_TASKBAR_W7_START_BTN_CLASS();
 
-			// DEF3264: CStartButton::_CalcStartButtonPos
 			pszW7StartBtnSize = (SIZE *)(lpW7StartMenu + DEF3264(0x20, 0x38));
 
 			if((SIZE *)lParam == pszW7StartBtnSize &&
@@ -3682,10 +3678,10 @@ static LRESULT CALLBACK NewW7StartButtonProc(HWND hWnd, UINT uMsg, WPARAM wParam
 		if(nOptionsEx[OPT_EX_DISABLE_TOPMOST])
 		{
 			// If we got here, the pointed window has nothing to do with the taskbar. Turn off start button focus.
-			DWORD dwSetting = *EV_TASKBAR_SETTINGS;
-			*EV_TASKBAR_SETTINGS |= 2;
+			DWORD dwSetting = *EV_TASKBAR_SETTINGS();
+			*EV_TASKBAR_SETTINGS() |= 2;
 			result = DefSubclassProc(hWnd, uMsg, wParam, lParam);
-			*EV_TASKBAR_SETTINGS = dwSetting;
+			*EV_TASKBAR_SETTINGS() = dwSetting;
 		}
 		else
 			result = DefSubclassProc(hWnd, uMsg, wParam, lParam);
@@ -3804,6 +3800,8 @@ static BOOL LaunchEmptySpaceFunction(int nFunction, LONG_PTR lpMMTaskbarLongPtr)
 	case 106:
 	case 107:
 	case 108:
+	case 109:
+	case 110:
 		ShortcutTaskbarActiveItemFunction(nFunction);
 		break;
 
@@ -3981,6 +3979,26 @@ static void ShortcutTaskbarActiveItemFunction(int nFunction)
 		if(task_item)
 			CloseTaskItem(task_item, TRUE);
 		break;
+
+	case 109:
+		if(task_item)
+		{
+			TaskbarMoveGroupByTaskItem(lpMMTaskListLongPtr, task_item, -1);
+
+			if(bActivateAgain)
+				SwitchToTaskItem(task_item);
+		}
+		break;
+
+	case 110:
+		if(task_item)
+		{
+			TaskbarMoveGroupByTaskItem(lpMMTaskListLongPtr, task_item, 1);
+
+			if(bActivateAgain)
+				SwitchToTaskItem(task_item);
+		}
+		break;
 	}
 }
 
@@ -4127,31 +4145,31 @@ static BOOL WINAPI SetWindowPosHook(HWND hWnd, HWND hWndInsertAfter, int X, int 
 
 				if(hAncestorWnd == hTaskbarWnd)
 				{
-					nTaskbarPos = *EV_TASKBAR_POS;
+					nTaskbarPos = *EV_TASKBAR_POS();
 
-					LONG_PTR lp = *EV_TASKBAR_START_BTN_LONG_PTR;
+					LONG_PTR lp = *EV_TASKBAR_START_BTN_LONG_PTR();
 					hStartBtnWnd = *EV_START_BUTTON_HWND(lp);
 
-					lp = *EV_TASKBAR_SEARCH_LONG_PTR;
+					lp = *EV_TASKBAR_SEARCH_LONG_PTR();
 					if(lp)
 						hSearchBtnWnd = *EV_TRAY_BUTTON_HWND(lp);
 
 					if(nWinVersion >= WIN_VERSION_10_19H1)
 					{
-						lp = *EV_TASKBAR_CORTANA_LONG_PTR;
+						lp = *EV_TASKBAR_CORTANA_LONG_PTR();
 						if(lp)
 							hCortanaBtnWnd = *EV_TRAY_BUTTON_HWND(lp);
 					}
 
-					lp = *EV_TASKBAR_MULTITASKING_LONG_PTR;
+					lp = *EV_TASKBAR_MULTITASKING_LONG_PTR();
 					if(lp)
 						hMultitaskBtnWnd = *EV_TRAY_BUTTON_HWND(lp);
 
-					lp = *EV_TASKBAR_BACK_LONG_PTR;
+					lp = *EV_TASKBAR_BACK_LONG_PTR();
 					if(lp)
 						hBackBtnWnd = *EV_TRAY_BUTTON_HWND(lp);
 
-					HWND *hExtraWnds = *EV_TASKBAR_EXTRA_BTN_HWNDS;
+					HWND *hExtraWnds = *EV_TASKBAR_EXTRA_BTN_HWNDS();
 					if(hExtraWnds)
 						hSearchBarWnd = hExtraWnds[0];
 				}
@@ -4355,7 +4373,7 @@ static HWND WINAPI ChildWindowFromPointHook(HWND hWndParent, POINT Point)
 static HRESULT WINAPI DwmEnableBlurBehindWindowHook(void *pRetAddr, HWND hWnd, const DWM_BLURBEHIND *pBlurBehind)
 {
 	DWM_BLURBEHIND dwmNewBlurBehind;
-	
+
 	if(
 		(ULONG_PTR)pRetAddr >= (ULONG_PTR)ExplorerModuleInfo.lpBaseOfDll &&
 		(ULONG_PTR)pRetAddr < (ULONG_PTR)ExplorerModuleInfo.lpBaseOfDll + ExplorerModuleInfo.SizeOfImage &&
@@ -4438,7 +4456,7 @@ static BOOL WINAPI DPA_SortHook(HDPA hdpa, PFNDACOMPARE pfnCompare, LPARAM lPara
 			LONG_PTR *plp = *(LONG_PTR **)this_ptr;
 
 			// CTaskItem::IsVisibleOnCurrentVirtualDesktop(this)
-			BOOL bVisibleOnCurrentVirtualDesktop = ((BYTE(__stdcall *)(LONG_PTR))plp[60])(this_ptr);
+			BOOL bVisibleOnCurrentVirtualDesktop = FUNC_CTaskItem_IsVisibleOnCurrentVirtualDesktop(plp)(this_ptr);
 
 			if(!bVisibleOnCurrentVirtualDesktop)
 			{

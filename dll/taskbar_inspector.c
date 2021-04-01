@@ -725,12 +725,14 @@ static BOOL ExplorerThreadFillList(LONG_PTR lpMMTaskListLongPtr)
 static void AddButtonGroupToList(HWND hListWnd, int list_index, LONG_PTR *button_group)
 {
 	LVITEM lvi;
+	LONG_PTR *task_group;
 
 	lvi.mask = LVIF_TEXT | LVIF_IMAGE | LVIF_PARAM | LVIF_INDENT;
 	lvi.iItem = list_index;
 	lvi.iSubItem = 0;
 
-	lvi.pszText = *EV_TASKGROUP_APPID(button_group[DO2(3, 4)]);
+	task_group = (LONG_PTR *)button_group[DO2(3, 4)];
+	lvi.pszText = *EV_TASKGROUP_APPID(task_group);
 	if(!lvi.pszText)
 		lvi.pszText = L"";
 	lvi.iImage = 0;
