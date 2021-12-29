@@ -5,6 +5,7 @@
 #include "wnd_proc.h"
 #include "functions.h"
 
+static BOOL AdjustVolumeLevelWithMouseWheel(int nWheelDelta);
 static BOOL OpenScrollSndVolInternal(WPARAM wParam, LPARAM lMousePosParam, HWND hVolumeAppWnd, BOOL *pbOpened);
 static BOOL ValidateSndVolProcess();
 static BOOL ValidateSndVolWnd();
@@ -56,7 +57,7 @@ const static GUID XIID_IAudioEndpointVolume = { 0x5CDF2C82, 0x841E, 0x4546, { 0x
 
 void SndVolInit()
 {
-	HRESULT hr = CoCreateInstance(&XIID_MMDeviceEnumerator, NULL, CLSCTX_INPROC_SERVER, &XIID_IMMDeviceEnumerator, (LPVOID*)&pDeviceEnumerator);
+	HRESULT hr = CoCreateInstance(&XIID_MMDeviceEnumerator, NULL, CLSCTX_INPROC_SERVER, &XIID_IMMDeviceEnumerator, (LPVOID *)&pDeviceEnumerator);
 	if(FAILED(hr))
 		pDeviceEnumerator = NULL;
 }
@@ -81,7 +82,7 @@ BOOL OpenScrollSndVol(WPARAM wParam, LPARAM lMousePosParam)
 
 	if(nOptionsEx[OPT_EX_SNDVOL_TOOLTIP])
 	{
-		if(!AddMasterVolumeLevelScalar((float)(GET_WHEEL_DELTA_WPARAM(wParam)*(0.02 / 120))))
+		if(!AdjustVolumeLevelWithMouseWheel(GET_WHEEL_DELTA_WPARAM(wParam)))
 			return FALSE;
 
 		ShowSndVolTooltip();
@@ -89,7 +90,7 @@ BOOL OpenScrollSndVol(WPARAM wParam, LPARAM lMousePosParam)
 	}
 	else if(CanUseModernIndicator())
 	{
-		if(!AddMasterVolumeLevelScalar((float)(GET_WHEEL_DELTA_WPARAM(wParam)*(0.02 / 120))))
+		if(!AdjustVolumeLevelWithMouseWheel(GET_WHEEL_DELTA_WPARAM(wParam)))
 			return FALSE;
 
 		ShowSndVolModernIndicator();
@@ -232,6 +233,17 @@ void CleanupSndVol()
 		hSndVolProcess = NULL;
 		hSndVolWnd = NULL;
 	}
+}
+
+static BOOL AdjustVolumeLevelWithMouseWheel(int nWheelDelta)
+{
+	int nStep = 2;
+	if(nOptionsEx[OPT_EX_SNDVOL_STEP])
+	{
+		nStep = nOptionsEx[OPT_EX_SNDVOL_STEP];
+	}
+
+	return AddMasterVolumeLevelScalar((float)nWheelDelta * nStep * ((float)0.01 / 120));
 }
 
 static BOOL OpenScrollSndVolInternal(WPARAM wParam, LPARAM lMousePosParam, HWND hVolumeAppWnd, BOOL *pbOpened)
@@ -880,7 +892,21 @@ BOOL AddMasterVolumeLevelScalar(float fMasterVolumeAdd)
 						fMasterVolume = 1.0;
 
 					if(SUCCEEDED(endpointVolume->lpVtbl->SetMasterVolumeLevelScalar(endpointVolume, fMasterVolume, NULL)))
+					{
 						bSuccess = TRUE;
+
+						if(!nOptionsEx[OPT_EX_SNDVOL_NO_AUTO_MUTE_TOGGLE])
+						{
+							// Windows displays the volume rounded to the nearest percentage.
+							// The range [0, 0.005) is displayed as 0%, [0.005, 0.015) as 1%, etc.
+							// It also mutes the volume when it becomes zero, we do the same.
+
+							if(fMasterVolume < 0.005)
+								endpointVolume->lpVtbl->SetMute(endpointVolume, TRUE, NULL);
+							else
+								endpointVolume->lpVtbl->SetMute(endpointVolume, FALSE, NULL);
+						}
+					}
 				}
 
 				endpointVolume->lpVtbl->Release(endpointVolume);

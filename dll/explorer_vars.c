@@ -132,9 +132,9 @@ LONG_PTR *EV_TASKBAR_CORTANA_LONG_PTR(void)
 		0 /* omitted from public code */));
 }
 
-HWND **EV_TASKBAR_EXTRA_BTN_HWNDS(void)
+LONG_PTR *EV_TASKBAR_TRAY_SEARCH_CONTROL(void)
 {
-	return (HWND **)(EV_TRAY_UI(lpTaskbarLongPtr) + EV_TRAY_UI_OFFSET_FIX(
+	return (LONG_PTR *)(EV_TRAY_UI(lpTaskbarLongPtr) + EV_TRAY_UI_OFFSET_FIX(
 		0 /* omitted from public code */));
 }
 
@@ -324,12 +324,12 @@ int *EV_MM_TASKLIST_TRACKED_BUTTON_INDEX(LONG_PTR lp)
 	return (int *)(lp + DO2_3264(0xB0, 0x118, 0, 0 /* omitted from public code */));
 }
 
-LONG_PTR **EV_MM_TASKLIST_ACVITE_BUTTON_GROUP(LONG_PTR lp)
+LONG_PTR **EV_MM_TASKLIST_ACTIVE_BUTTON_GROUP(LONG_PTR lp)
 {
 	return (LONG_PTR **)(lp + DO2_3264(0xB4, 0x120, 0, 0 /* omitted from public code */));
 }
 
-int *EV_MM_TASKLIST_ACVITE_BUTTON_INDEX(LONG_PTR lp)
+int *EV_MM_TASKLIST_ACTIVE_BUTTON_INDEX(LONG_PTR lp)
 {
 	return (int *)(lp + DO2_3264(0xB8, 0x128, 0, 0 /* omitted from public code */));
 }
@@ -463,6 +463,14 @@ HWND *EV_START_BUTTON_HWND(LONG_PTR lp)
 }
 
 //////////////////////////////////////////////////////////////////////////
+// CTraySearchControl
+
+HWND *EV_TRAY_SEARCH_CONTROL_BUTTON_HWND(LONG_PTR lp)
+{
+	return (HWND *)(lp + 0 /* omitted from public code */);
+}
+
+//////////////////////////////////////////////////////////////////////////
 // CTrayButton
 
 HWND *EV_TRAY_BUTTON_HWND(LONG_PTR lp)
@@ -505,6 +513,12 @@ HWND *EV_TRAY_NOTIFY_TOOLBAR_WND(LONG_PTR lp)
 	return (HWND *)(lp + DO2_3264(0x29C, 0x308, 0, 0 /* omitted from public code */));
 }
 
+// For 7+ Taskbar Numberer
+BOOL *EV_TRAY_NOTIFY_CHEVRON_STATE(LONG_PTR lp)
+{
+	return (BOOL *)(lp + DO2_3264(0x324, 0x3EC, 0, 0 /* omitted from public code */));
+}
+
 BYTE *EV_TRAY_NOTIFY_PTRDEV_SUPPORTED(LONG_PTR lp)
 {
 	return (BYTE *)(lp + 0 /* omitted from public code */);
@@ -514,6 +528,13 @@ BYTE *EV_TRAY_NOTIFY_PTRDEV_SUPPORTED(LONG_PTR lp)
 BYTE *EV_TRAY_NOTIFY_PTRDEV_SUPPORTED_VALID(LONG_PTR lp)
 {
 	return (BYTE *)(lp + 0 /* omitted from public code */);
+}
+
+// For 7+ Taskbar Numberer
+HTHEME *EV_TRAY_NOTIFY_THEME(LONG_PTR lp)
+{
+	return (HTHEME *)(lp +
+		DO2_3264(0x34C, 0x420, 0, 0 /* omitted from public code */));
 }
 
 DWORD *EV_TRAY_NOTIFY_DRAG_FLAG(LONG_PTR lp)

@@ -52,6 +52,13 @@ Error ranges:
 #define LIB_ERR_EXTHREAD_REFRESHTASKBAR      208
 #define LIB_ERR_EXTHREAD_MINHOOK_APPLY       209
 
+#define EXE_ERR_NO_DLL                       901
+#define EXE_ERR_NO_TASKBAR                   902
+#define EXE_ERR_NO_TASKLIST                  903
+#define EXE_ERR_HIDDEN_TASKLIST              904
+#define EXE_ERR_OPEN_PROCESS                 905
+#define EXE_ERR_OTHER_ERROR                  906
+
 #define EXE_ERR_VIRTUAL_ALLOC                1001
 #define EXE_ERR_WRITE_PROC_MEM               1002
 #define EXE_ERR_CREATE_REMOTE_THREAD         1003

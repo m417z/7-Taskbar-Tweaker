@@ -42,6 +42,8 @@ BOOL LoadOptionsEx(int pOptionsEx[OPTS_EX_COUNT])
 		0, L"scroll_no_wrap",
 		0, L"show_labels",
 		0, L"sndvol_classic",
+		0, L"sndvol_step",
+		0, L"sndvol_no_auto_mute_toggle",
 	};
 
 	PS_SECTION section;

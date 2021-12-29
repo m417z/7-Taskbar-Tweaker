@@ -2,7 +2,7 @@
 
 #include "options_def.h"
 
-typedef struct _inject_init_struct{
+typedef struct _inject_init_struct {
 	// in
 	DWORD dwVersion;
 	HWND hTweakerWnd;

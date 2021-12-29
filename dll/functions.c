@@ -199,7 +199,7 @@ LRESULT TweakerSendErrorMsg(WCHAR *pText)
 	DWORD dwProcess;
 
 	cds.dwData = 0xDEADBEEF;
-	cds.cbData = (lstrlen(pText) + 1)*sizeof(WCHAR);
+	cds.cbData = (lstrlen(pText) + 1) * sizeof(WCHAR);
 	cds.lpData = pText;
 
 	GetWindowThreadProcessId(hTweakerWnd, &dwProcess);
@@ -210,7 +210,7 @@ LRESULT TweakerSendErrorMsg(WCHAR *pText)
 
 // Undocumented WinAPI functions
 
-HWND WINAPI HungWindowFromGhostWindow_(HWND hwndGhost)
+HWND HungWindowFromGhostWindow_(HWND hwndGhost)
 {
 	static FARPROC pFunc;
 	HMODULE hModule;
@@ -229,7 +229,7 @@ HWND WINAPI HungWindowFromGhostWindow_(HWND hwndGhost)
 	return ((HWND(WINAPI *)(HWND))pFunc)(hwndGhost);
 }
 
-HWND WINAPI GhostWindowFromHungWindow_(HWND hwndHung)
+HWND GhostWindowFromHungWindow_(HWND hwndHung)
 {
 	static FARPROC pFunc;
 	HMODULE hModule;
@@ -248,7 +248,7 @@ HWND WINAPI GhostWindowFromHungWindow_(HWND hwndHung)
 	return ((HWND(WINAPI *)(HWND))pFunc)(hwndHung);
 }
 
-BOOL WINAPI MirrorIcon_(HICON *phIconSmall, HICON *phIconLarge)
+BOOL MirrorIcon_(HICON *phIconSmall, HICON *phIconLarge)
 {
 	static FARPROC pFunc;
 	HMODULE hModule;
@@ -944,9 +944,9 @@ BOOL TaskbarMoveTaskInGroup(LONG_PTR *task_group, LONG_PTR *task_item_from, LONG
 
 	plp = task_items[index_from];
 	if(index_from < index_to)
-		memmove(&task_items[index_from], &task_items[index_from + 1], (index_to - index_from)*sizeof(LONG_PTR *));
+		memmove(&task_items[index_from], &task_items[index_from + 1], (index_to - index_from) * sizeof(LONG_PTR *));
 	else
-		memmove(&task_items[index_to + 1], &task_items[index_to], (index_from - index_to)*sizeof(LONG_PTR *));
+		memmove(&task_items[index_to + 1], &task_items[index_to], (index_from - index_to) * sizeof(LONG_PTR *));
 	task_items[index_to] = plp;
 
 	TaskbarMoveTaskInTaskList(lpTaskListLongPtr, task_group, task_item_from, task_item_to);
@@ -1021,10 +1021,10 @@ static void TaskbarMoveTaskInTaskList(LONG_PTR lpMMTaskListLongPtr,
 				{
 					DPA_InsertPtr(hButtonsDpa, index_to, plp);
 
-					LONG_PTR *button_group_active = *EV_MM_TASKLIST_ACVITE_BUTTON_GROUP(lpMMTaskListLongPtr);
+					LONG_PTR *button_group_active = *EV_MM_TASKLIST_ACTIVE_BUTTON_GROUP(lpMMTaskListLongPtr);
 					if(button_group == button_group_active)
 					{
-						int *p_button_index_active = EV_MM_TASKLIST_ACVITE_BUTTON_INDEX(lpMMTaskListLongPtr);
+						int *p_button_index_active = EV_MM_TASKLIST_ACTIVE_BUTTON_INDEX(lpMMTaskListLongPtr);
 						if(*p_button_index_active == index_from || *p_button_index_active == index_to)
 						{
 							if(*p_button_index_active == index_from)
@@ -1512,8 +1512,8 @@ LONG_PTR *TaskbarScroll(LONG_PTR lpMMTaskListLongPtr, int nRotates, BOOL bSkipMi
 	}
 	else
 	{
-		button_group_active = *EV_MM_TASKLIST_ACVITE_BUTTON_GROUP(lpMMTaskListLongPtr);
-		button_index_active = *EV_MM_TASKLIST_ACVITE_BUTTON_INDEX(lpMMTaskListLongPtr);
+		button_group_active = *EV_MM_TASKLIST_ACTIVE_BUTTON_GROUP(lpMMTaskListLongPtr);
+		button_index_active = *EV_MM_TASKLIST_ACTIVE_BUTTON_INDEX(lpMMTaskListLongPtr);
 
 		if(button_group_active && button_index_active >= 0)
 		{
@@ -1602,20 +1602,20 @@ LONG_PTR *TaskbarGetTrackedButtonGroup(LONG_PTR lpMMTaskListLongPtr)
 
 LONG_PTR *TaskbarGetActiveButtonGroup(LONG_PTR lpMMTaskListLongPtr)
 {
-	int button_index_active = *EV_MM_TASKLIST_ACVITE_BUTTON_INDEX(lpMMTaskListLongPtr);
+	int button_index_active = *EV_MM_TASKLIST_ACTIVE_BUTTON_INDEX(lpMMTaskListLongPtr);
 	if(button_index_active == -1)
 	{
 		// This check is here for consistency with TaskbarGetTrackedButtonGroup.
 		return NULL;
 	}
 
-	return *EV_MM_TASKLIST_ACVITE_BUTTON_GROUP(lpMMTaskListLongPtr);
+	return *EV_MM_TASKLIST_ACTIVE_BUTTON_GROUP(lpMMTaskListLongPtr);
 }
 
 LONG_PTR *TaskbarGetActiveButton(LONG_PTR lpMMTaskListLongPtr)
 {
-	LONG_PTR *button_group_active = *EV_MM_TASKLIST_ACVITE_BUTTON_GROUP(lpMMTaskListLongPtr);
-	int button_index_active = *EV_MM_TASKLIST_ACVITE_BUTTON_INDEX(lpMMTaskListLongPtr);
+	LONG_PTR *button_group_active = *EV_MM_TASKLIST_ACTIVE_BUTTON_GROUP(lpMMTaskListLongPtr);
+	int button_index_active = *EV_MM_TASKLIST_ACTIVE_BUTTON_INDEX(lpMMTaskListLongPtr);
 
 	if(!button_group_active || button_index_active < 0)
 	{
@@ -1740,22 +1740,15 @@ void TaskListRecomputeLayout(LONG_PTR lpMMTaskListLongPtr)
 
 	// CTaskListWnd::AutoSize(this)
 	FUNC_CTaskListWnd_AutoSize(plp)(this_ptr);
-
-	if(nWinVersion >= WIN_VERSION_8)
-		MHP_HookGetClientRect(NULL);
 }
 
 static BOOL WINAPI GetClientRectHook(void *pRetAddr, HWND hWnd, LPRECT lpRect)
 {
-	if(
-		(ULONG_PTR)pRetAddr >= (ULONG_PTR)ExplorerModuleInfo.lpBaseOfDll &&
-		(ULONG_PTR)pRetAddr < (ULONG_PTR)ExplorerModuleInfo.lpBaseOfDll + ExplorerModuleInfo.SizeOfImage &&
-		GetCurrentThreadId() == dwTaskbarThreadId
-	)
+	if(GetCurrentThreadId() == dwTaskbarThreadId)
 	{
-		if(hWnd && hWnd == hGetClientRectTaskListWnd)
+		if(hWnd == hGetClientRectTaskListWnd)
 		{
-			hGetClientRectTaskListWnd = NULL;
+			MHP_HookGetClientRect(NULL);
 
 			ZeroMemory(lpRect, sizeof(RECT));
 			return TRUE;
@@ -2173,29 +2166,6 @@ void DisableTaskbarTopmost(BOOL bDisable)
 	}
 }
 
-void EnableTaskbarBlurBehindWindow(BOOL bEnable)
-{
-	DWM_BLURBEHIND blur;
-	SECONDARY_TASK_LIST_GET secondary_task_list_get;
-	LONG_PTR lpSecondaryTaskListLongPtr;
-
-	blur.dwFlags = DWM_BB_ENABLE;
-	blur.fEnable = bEnable;
-	DwmEnableBlurBehindWindow(hTaskbarWnd, &blur);
-
-	lpSecondaryTaskListLongPtr = SecondaryTaskListGetFirstLongPtr(&secondary_task_list_get);
-	while(lpSecondaryTaskListLongPtr)
-	{
-		LONG_PTR lpSecondaryTaskBandLongPtr = EV_MM_TASKLIST_SECONDARY_TASK_BAND_LONG_PTR_VALUE(lpSecondaryTaskListLongPtr);
-		LONG_PTR lpSecondaryTaskbarLongPtr = EV_SECONDARY_TASK_BAND_SECONDARY_TASKBAR_LONG_PTR_VALUE(lpSecondaryTaskBandLongPtr);
-
-		HWND hSecondaryTaskbarWnd = *EV_SECONDARY_TASKBAR_HWND(lpSecondaryTaskbarLongPtr);
-		DwmEnableBlurBehindWindow(hSecondaryTaskbarWnd, &blur);
-
-		lpSecondaryTaskListLongPtr = SecondaryTaskListGetNextLongPtr(&secondary_task_list_get);
-	}
-}
-
 void ButtonGroupExecMenuCommand(LONG_PTR *button_group, WPARAM wCommand)
 {
 	LONG_PTR *task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
@@ -2325,6 +2295,21 @@ int IdentifyTaskbarWindow(HWND hWnd)
 
 		LONG_PTR lpSecondaryTaskbarLongPtr = EV_SECONDARY_TASK_BAND_SECONDARY_TASKBAR_LONG_PTR_VALUE(lpSecondaryTaskBandLongPtr);
 
+		if(nWinVersion >= WIN_VERSION_10_R1)
+		{
+			// On a secondary taskbar, all there is that can be regarded
+			// as the notification area is the clock.
+			LONG_PTR lpSecondaryTrayClockLongPtr = *EV_SECONDARY_TASKBAR_CLOCK_LONG_PTR(lpSecondaryTaskbarLongPtr);
+
+			// According to crash reports, lpSecondaryTrayClockLongPtr can be NULL.
+			if(lpSecondaryTrayClockLongPtr)
+			{
+				HWND hSecondaryClockButtonWnd = *EV_CLOCK_BUTTON_HWND(lpSecondaryTrayClockLongPtr);
+				if(hWnd == hSecondaryClockButtonWnd)
+					return TASKBAR_WINDOW_NOTIFY;
+			}
+		}
+
 		HWND hSecondaryTaskbarWnd = *EV_SECONDARY_TASKBAR_HWND(lpSecondaryTaskbarLongPtr);
 		if(hWnd == hSecondaryTaskbarWnd || IsChild(hSecondaryTaskbarWnd, hWnd))
 			return TASKBAR_SECONDARY_TASKBAR;
@@ -2338,7 +2323,6 @@ int IdentifyTaskbarWindow(HWND hWnd)
 void DisableTaskbarsAnimation(LONG_PTR **ppMainTaskListAnimationManager, ANIMATION_MANAGER_ITEM **plpSeconadryTaskListAnimationManagers)
 {
 	SendMessage(hTaskListWnd, WM_SETREDRAW, FALSE, 0);
-	EnableWindow(hTaskListWnd, FALSE);
 
 	if(nWinVersion >= WIN_VERSION_10_T1)
 	{
@@ -2373,7 +2357,6 @@ void DisableTaskbarsAnimation(LONG_PTR **ppMainTaskListAnimationManager, ANIMATI
 		HWND hSecondaryTaskListWnd = *EV_MM_TASKLIST_HWND(lpSecondaryTaskListLongPtr);
 
 		SendMessage(hSecondaryTaskListWnd, WM_SETREDRAW, FALSE, 0);
-		EnableWindow(hSecondaryTaskListWnd, FALSE);
 
 		if(lpSeconadryTaskListAnimationManagers)
 		{
@@ -2403,7 +2386,6 @@ void RestoreTaskbarsAnimation(LONG_PTR *pMainTaskListAnimationManager, ANIMATION
 		pMainTaskListAnimationManager = NULL;
 	}
 
-	EnableWindow(hTaskListWnd, TRUE);
 	SendMessage(hTaskListWnd, WM_SETREDRAW, TRUE, 0);
 	RedrawWindow(hTaskListWnd, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
 
@@ -2425,7 +2407,6 @@ void RestoreTaskbarsAnimation(LONG_PTR *pMainTaskListAnimationManager, ANIMATION
 			}
 		}
 
-		EnableWindow(hSecondaryTaskListWnd, TRUE);
 		SendMessage(hSecondaryTaskListWnd, WM_SETREDRAW, TRUE, 0);
 		RedrawWindow(hSecondaryTaskListWnd, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
 
@@ -2436,6 +2417,22 @@ void RestoreTaskbarsAnimation(LONG_PTR *pMainTaskListAnimationManager, ANIMATION
 	{
 		HeapFree(GetProcessHeap(), 0, lpSeconadryTaskListAnimationManagers);
 		lpSeconadryTaskListAnimationManagers = NULL;
+	}
+}
+
+void EnableTaskbars(BOOL bEnable)
+{
+	EnableWindow(hTaskListWnd, bEnable);
+
+	SECONDARY_TASK_LIST_GET secondary_task_list_get;
+	LONG_PTR lpSecondaryTaskListLongPtr = SecondaryTaskListGetFirstLongPtr(&secondary_task_list_get);
+	while(lpSecondaryTaskListLongPtr)
+	{
+		HWND hSecondaryTaskListWnd = *EV_MM_TASKLIST_HWND(lpSecondaryTaskListLongPtr);
+
+		EnableWindow(hSecondaryTaskListWnd, bEnable);
+
+		lpSecondaryTaskListLongPtr = SecondaryTaskListGetNextLongPtr(&secondary_task_list_get);
 	}
 }
 

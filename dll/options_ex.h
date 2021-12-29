@@ -34,8 +34,10 @@
 #define OPT_EX_SCROLL_NO_WRAP                     31
 #define OPT_EX_SHOW_LABELS                        32
 #define OPT_EX_SNDVOL_CLASSIC                     33
+#define OPT_EX_SNDVOL_STEP                        34
+#define OPT_EX_SNDVOL_NO_AUTO_MUTE_TOGGLE         35
 
-#define OPTS_EX_COUNT                             34
+#define OPTS_EX_COUNT                             36
 #define OPTS_EX_BUFF                              (OPTS_EX_COUNT*sizeof(int))
 
 BOOL LoadOptionsEx(int pOptionsEx[OPTS_EX_COUNT]);

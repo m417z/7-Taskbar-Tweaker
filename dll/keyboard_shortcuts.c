@@ -37,7 +37,7 @@ BOOL LoadKeybdShortcuts(WNDPROC pHotKeyWndProc)
 				hHotKeyWnd = CreateHotKeyWnd(pHotKeyWndProc);
 				if(hHotKeyWnd)
 				{
-					pHotKeyValues = (int *)HeapAlloc(GetProcessHeap(), 0, nKeyCount*sizeof(int));
+					pHotKeyValues = (int *)HeapAlloc(GetProcessHeap(), 0, nKeyCount * sizeof(int));
 					if(pHotKeyValues)
 					{
 						do
@@ -67,7 +67,7 @@ BOOL LoadKeybdShortcuts(WNDPROC pHotKeyWndProc)
 
 							if(nHotKeyCount < nKeyCount)
 							{
-								pReAlloc = (int *)HeapReAlloc(GetProcessHeap(), 0, pHotKeyValues, nHotKeyCount*sizeof(int));
+								pReAlloc = (int *)HeapReAlloc(GetProcessHeap(), 0, pHotKeyValues, nHotKeyCount * sizeof(int));
 								if(pReAlloc)
 									pHotKeyValues = pReAlloc;
 							}

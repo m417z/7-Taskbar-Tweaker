@@ -60,7 +60,7 @@ UINT GetUniqueTempDir(TCHAR *pPrefixString, TCHAR *pDir)
 	WORD wUnique, wUniqueInit;
 
 	uTempLen = GetTempPath(MAX_PATH, pDir);
-	if(uTempLen == 0 || uTempLen > MAX_PATH-1)
+	if(uTempLen == 0 || uTempLen > MAX_PATH - 1)
 		return 0;
 
 	p = pDir + uTempLen;
@@ -70,7 +70,7 @@ UINT GetUniqueTempDir(TCHAR *pPrefixString, TCHAR *pDir)
 
 	uTempLen += 4;
 
-	if(uTempLen > MAX_PATH-1)
+	if(uTempLen > MAX_PATH - 1)
 		return 0;
 
 	if(pPrefixString)
@@ -117,7 +117,7 @@ BOOL RemoveDirectoryOnReboot(TCHAR *pDir)
 		"\r\n"
 		"On Error Resume Next\r\n"
 		"Main\r\n";
-	DWORD dwVBScriptLen = lstrlenA(pVBScriptSrc)*sizeof(char);
+	DWORD dwVBScriptLen = lstrlenA(pVBScriptSrc) * sizeof(char);
 
 	WCHAR szFile[MAX_PATH];
 	WCHAR szCommand[MAX_PATH + sizeof("\"%SystemRoot%\\System32\\WScript.exe\" /B \"\"") - 1];
@@ -147,12 +147,12 @@ BOOL RemoveDirectoryOnReboot(TCHAR *pDir)
 		return FALSE;
 
 	lRet = RegCreateKeyEx(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
-		0, NULL, 0, KEY_QUERY_VALUE|KEY_SET_VALUE, NULL, &hKey, NULL);
+		0, NULL, 0, KEY_QUERY_VALUE | KEY_SET_VALUE, NULL, &hKey, NULL);
 	if(lRet != ERROR_SUCCESS)
 		return FALSE;
 
 	lstrcpy(szValueName, L"del_vbs_");
-	p = szValueName + (sizeof("del_vbs_")-1);
+	p = szValueName + (sizeof("del_vbs_") - 1);
 
 	wUnique = (WORD)GetTickCount();
 	wUniqueInit = wUnique;
@@ -168,7 +168,7 @@ BOOL RemoveDirectoryOnReboot(TCHAR *pDir)
 			break;
 
 		case ERROR_FILE_NOT_FOUND:
-			lRet = RegSetValueEx(hKey, szValueName, 0, REG_SZ, (BYTE *)szCommand, (lstrlen(szCommand)+1)*sizeof(WCHAR));
+			lRet = RegSetValueEx(hKey, szValueName, 0, REG_SZ, (BYTE *)szCommand, (lstrlen(szCommand) + 1) * sizeof(WCHAR));
 			RegCloseKey(hKey);
 			return (lRet == ERROR_SUCCESS);
 
@@ -232,14 +232,14 @@ BOOL CanAccessFolder(LPCTSTR szFolderName, DWORD dwGenericAccessRights)
 			HANDLE hToken = NULL;
 
 			if(OpenProcessToken(GetCurrentProcess(), TOKEN_IMPERSONATE | TOKEN_QUERY |
-				TOKEN_DUPLICATE | STANDARD_RIGHTS_READ, &hToken ))
+				TOKEN_DUPLICATE | STANDARD_RIGHTS_READ, &hToken))
 			{
 				HANDLE hImpersonatedToken = NULL;
 
 				if(DuplicateToken(hToken, SecurityImpersonation, &hImpersonatedToken))
 				{
-					GENERIC_MAPPING mapping = {0xFFFFFFFF};
-					PRIVILEGE_SET privileges = {0};
+					GENERIC_MAPPING mapping = { 0xFFFFFFFF };
+					PRIVILEGE_SET privileges = { 0 };
 					DWORD grantedAccess = 0, privilegesLength = sizeof(PRIVILEGE_SET);
 					BOOL result = FALSE;
 
@@ -267,4 +267,49 @@ BOOL CanAccessFolder(LPCTSTR szFolderName, DWORD dwGenericAccessRights)
 	}
 
 	return bRet;
+}
+
+BOOL GetHelpFilePath(LANGID langid, const WCHAR *szLauncherPath, WCHAR *szHelpFilePath)
+{
+	WCHAR szLocaleName[LOCALE_NAME_MAX_LENGTH];
+	int nLocaleNameLen;
+	int nFilePathLen;
+
+	if(langid == MAKELANGID(LANG_SPANISH, SUBLANG_SPANISH))
+	{
+		// Spanish - Spain (1034) translates to "es-ES_tradnl",
+		// but the help file name is "es-VE.chm". We could rename
+		// the file and remove the old file on update, but the following
+		// fixup works, too.
+		lstrcpy(szLocaleName, L"es-VE");
+		nLocaleNameLen = sizeof("es-VE") - 1;
+	}
+	else
+	{
+		nLocaleNameLen = LCIDToLocaleName(MAKELCID(langid, SORT_DEFAULT), szLocaleName, LOCALE_NAME_MAX_LENGTH, 0);
+		if(nLocaleNameLen == 0)
+			return FALSE;
+	}
+
+	lstrcpy(szHelpFilePath, szLauncherPath);
+	nFilePathLen = lstrlen(szHelpFilePath);
+
+	do
+	{
+		nFilePathLen--;
+		if(nFilePathLen < 0)
+			return FALSE;
+	}
+	while(szHelpFilePath[nFilePathLen] != L'\\');
+
+	nFilePathLen++;
+	szHelpFilePath[nFilePathLen] = L'\0';
+
+	if(nFilePathLen + (sizeof("help\\") - 1) + nLocaleNameLen + (sizeof(".chm") - 1) > MAX_PATH - 1)
+		return FALSE;
+
+	lstrcat(szHelpFilePath, L"help\\");
+	lstrcat(szHelpFilePath, szLocaleName);
+	lstrcat(szHelpFilePath, L".chm");
+	return TRUE;
 }

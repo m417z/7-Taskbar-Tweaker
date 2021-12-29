@@ -1,6 +1,8 @@
 #ifndef _FUNCTIONS_H_
 #define _FUNCTIONS_H_
 
+#include "version.h"
+
 #ifdef _WIN64
 #define DEF3264(d32, d64) (d64)
 #else
@@ -22,5 +24,6 @@ UINT GetUniqueTempDir(TCHAR *pPrefixString, TCHAR *pDir);
 BOOL RemoveDirectoryOnReboot(TCHAR *pDir);
 BOOL SimpleCreateProcess(WCHAR *pApplicationName, WCHAR *pCommandLine, BOOL bWait);
 BOOL CanAccessFolder(LPCTSTR szFolderName, DWORD dwGenericAccessRights);
+BOOL GetHelpFilePath(LANGID langid, const WCHAR *szLauncherPath, WCHAR *szHelpFilePath);
 
 #endif // _FUNCTIONS_H_

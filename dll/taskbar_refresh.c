@@ -110,6 +110,7 @@ static BOOL RefreshTaskbarHardcore_Begin()
 	}
 
 	DisableTaskbarsAnimation(&pMainTaskListAnimationManager, &lpSeconadryTaskListAnimationManagers);
+	EnableTaskbars(FALSE);
 
 	InspectorBeforeTaskbarRefresh();
 
@@ -188,7 +189,7 @@ static REFRESH_HARDCORE_PARAM *PopulateRefreshHardcoreParam()
 	item_count = button_wnd_count + pinned_item_count;
 
 	p_refresh_param = (REFRESH_HARDCORE_PARAM *)HeapAlloc(GetProcessHeap(), 0,
-		offsetof(REFRESH_HARDCORE_PARAM, refresh_items) + sizeof(REFRESH_HARDCORE_ITEM)*item_count);
+		offsetof(REFRESH_HARDCORE_PARAM, refresh_items) + sizeof(REFRESH_HARDCORE_ITEM) * item_count);
 	if(!p_refresh_param)
 		return NULL;
 
@@ -285,7 +286,7 @@ static int TaskListItemPopulate(LONG_PTR lpMMTaskListLongPtr, REFRESH_HARDCORE_I
 
 				if(nWinVersion >= WIN_VERSION_10_T1)
 				{
-					LONG_PTR *task_item = (LONG_PTR*)buttons[j][DO2(3, 4)];
+					LONG_PTR *task_item = (LONG_PTR *)buttons[j][DO2(3, 4)];
 
 					LONG_PTR this_ptr = (LONG_PTR)task_item;
 					LONG_PTR *plp = *(LONG_PTR **)this_ptr;
@@ -379,6 +380,7 @@ static void SyncWndDestroyed()
 	{
 		HeapFree(GetProcessHeap(), 0, gp_refresh_param);
 
+		EnableTaskbars(TRUE);
 		RestoreTaskbarsAnimation(pMainTaskListAnimationManager, lpSeconadryTaskListAnimationManagers);
 
 		InspectorAfterTaskbarRefresh();

@@ -41,6 +41,35 @@ typedef struct _new_button_lparam {
 	BOOL bSetThumbFlag;
 } NEW_BUTTON_LPARAM;
 
+// SetWindowCompositionAttribute definitions:
+
+typedef enum tagACCENT_STATE {              // Affects the rendering of the background of a window.
+	ACCENT_DISABLED = 0,                    // Default value. Background is black.
+	ACCENT_ENABLE_GRADIENT = 1,             // Background is GradientColor, alpha channel ignored.
+	ACCENT_ENABLE_TRANSPARENTGRADIENT = 2,  // Background is GradientColor.
+	ACCENT_ENABLE_BLURBEHIND = 3,           // Background is GradientColor, with blur effect.
+	ACCENT_ENABLE_ACRYLICBLURBEHIND = 4,    // Background is GradientColor, with acrylic blur effect.
+	ACCENT_ENABLE_HOSTBACKDROP = 5,         // Unknown.
+	ACCENT_INVALID_STATE = 6,               // Unknown. Seems to draw background fully transparent.
+} ACCENT_STATE;
+
+typedef struct tagACCENT_POLICY {           // Determines how a window's background is rendered.
+	ACCENT_STATE    AccentState;            // Background effect.
+	UINT            AccentFlags;            // Flags. Set to 2 to tell GradientColor is used, rest is unknown.
+	COLORREF        GradientColor;          // Background color.
+	LONG            AnimationId;            // Unknown
+} ACCENT_POLICY;
+
+typedef enum tagWINDOWCOMPOSITIONATTRIB {   // Determines what attribute is being manipulated.
+	WCA_ACCENT_POLICY = 0x13                // The attribute being get or set is an accent policy.
+} WINDOWCOMPOSITIONATTRIB;
+
+typedef struct tagWINDOWCOMPOSITIONATTRIBDATA { // Options for [Get/Set]WindowCompositionAttribute.
+	WINDOWCOMPOSITIONATTRIB Attrib;         // Type of what is being get or set.
+	LPVOID                  pvData;         // Pointer to memory that will receive what is get or that contains what will be set.
+	UINT                    cbData;         // Size of the data being pointed to by pvData.
+} WINDOWCOMPOSITIONATTRIBDATA;
+
 static LRESULT THISCALL_C InitTaskbarProc(THISCALL_C_THIS_ARG(LONG_PTR *this_ptr), HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 static void SubclassExplorerWindows(void);
 static void UnsubclassExplorerWindows(void);
@@ -71,8 +100,8 @@ static void SubclassSecondaryTaskListWindows(LONG_PTR lpSecondaryTaskListLongPtr
 static void UnsubclassSecondaryTaskListWindows(LONG_PTR lpSecondaryTaskListLongPtr);
 static void GetSecondaryTaskListWindows(LONG_PTR lpSecondaryTaskListLongPtr,
 	HWND *phSecondaryTaskbarWnd, HWND *phSecondaryTaskBandWnd, HWND *phSecondaryTaskListWnd, HWND *phSecondaryThumbnailWnd);
-static HWND WINAPI GetCaptureHook(void *pRetAddr);
-static SHORT WINAPI GetKeyStateInvertShiftHook(void *pRetAddr, int nVirtKey);
+static HWND WINAPI GetCaptureHook(void);
+static SHORT WINAPI GetKeyStateInvertShiftHook(int nVirtKey);
 static BOOL WINAPI SetWindowPosHook(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int cx, int cy, UINT uFlags);
 static LONG WINAPI GetWindowLongWAlwaysTopmostHook(void *pRetAddr, HWND hWnd, int nIndex);
 static BOOL WINAPI PostMessageWIgnoreTopmostHook(void *pRetAddr, HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
@@ -83,8 +112,9 @@ static BOOL WINAPI SHChangeNotification_UnlockHook(HANDLE hLock);
 static int WINAPI GetTimeFormat_W_or_Ex_Hook(LONG_PTR var1, DWORD dwFlags, SYSTEMTIME *lpTime, LPCWSTR lpFormat, LPWSTR lpTimeStr, int cchTime);
 static HTHEME WINAPI OpenThemeDataHook(HWND hwnd, LPCWSTR pszClassList);
 static HWND WINAPI ChildWindowFromPointHook(HWND hWndParent, POINT Point);
-static HRESULT WINAPI DwmEnableBlurBehindWindowHook(void *pRetAddr, HWND hWnd, const DWM_BLURBEHIND *pBlurBehind);
-static int WINAPI GetSystemMetricsHook(void *pRetAddr, int nIndex);
+static HRESULT WINAPI DwmEnableBlurBehindWindowHook(HWND hWnd, const DWM_BLURBEHIND *pBlurBehind);
+static BOOL WINAPI SetWindowCompositionAttributeHook(HWND hWnd, const WINDOWCOMPOSITIONATTRIBDATA *pAttribute);
+static int WINAPI GetSystemMetricsHook(int nIndex);
 static LONG_PTR WINAPI SetWindowBandNoChangeTaskbarHook(HWND hWnd, LONG_PTR var2, LONG_PTR var3);
 static BOOL WINAPI DPA_SortHook(HDPA hdpa, PFNDACOMPARE pfnCompare, LPARAM lParam);
 static HRESULT WINAPI DrawThemeBackgroundTaskbarHook(HTHEME hTheme, HDC hdc, int iPartId, int iStateId, LPCRECT pRect, LPCRECT pClipRect);
@@ -109,12 +139,22 @@ static HWND hTrayNotifyWnd, hTrayOverflowToolbarWnd, hTrayTemporaryToolbarWnd, h
 static volatile int wnd_proc_call_counter;
 
 // hooks
+static void **ppGetCapture;
+POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prGetCapture);
+static void **ppGetKeyState;
+POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prGetKeyState);
 static void **ppMulDiv;
 POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prMulDiv);
 static void **ppSHChangeNotification_Lock;
 POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prSHChangeNotification_Lock);
 static void **ppSHChangeNotification_Unlock;
 POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prSHChangeNotification_Unlock);
+static void **ppDwmEnableBlurBehindWindow;
+POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prDwmEnableBlurBehindWindow);
+static void **ppSetWindowCompositionAttribute;
+POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prSetWindowCompositionAttribute);
+static void **ppGetSystemMetrics;
+POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prGetSystemMetrics);
 static void **ppOpenThemeData;
 POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prOpenThemeData);
 static void **ppChildWindowFromPoint;
@@ -156,15 +196,39 @@ DWORD WndProcInit(int pOptions[OPTS_COUNT])
 
 	GetModuleInformation(GetCurrentProcess(), hExplorer, &ExplorerModuleInfo, sizeof(MODULEINFO));
 
+	if(
+		!(ppGetCapture = FindImportPtr(hExplorer, "user32.dll", "GetCapture")) ||
+		!(ppGetKeyState = FindImportPtr(hExplorer, "user32.dll", "GetKeyState"))
+	)
+		return LIB_ERR_FIND_IMPORT_1;
+
+	if(nWinVersion >= WIN_VERSION_10_R2)
+		ppGetSystemMetrics = FindImportPtr(hExplorer, "api-ms-win-ntuser-sysparams-l1-1-0.dll", "GetSystemMetrics");
+	else
+		ppGetSystemMetrics = FindImportPtr(hExplorer, "user32.dll", "GetSystemMetrics");
+
+	if(!ppGetSystemMetrics)
+		return LIB_ERR_FIND_IMPORT_1;
+
 	if(nWinVersion >= WIN_VERSION_10_T1)
 	{
 		pSetWindowBand = (void *)GetProcAddress(GetModuleHandle(L"user32.dll"), "SetWindowBand");
+
 		if(nWinVersion >= WIN_VERSION_10_R2)
 			ppMulDiv = FindImportPtr(hExplorer, "api-ms-win-core-largeinteger-l1-1-0.dll", "MulDiv");
 		else
 			ppMulDiv = FindImportPtr(hExplorer, "kernel32.dll", "MulDiv");
-		ppSHChangeNotification_Lock = FindImportPtr(hExplorer, "shell32.dll", MAKEINTRESOURCEA(644));
-		ppSHChangeNotification_Unlock = FindImportPtr(hExplorer, "shell32.dll", MAKEINTRESOURCEA(645));
+
+		if(nWinVersion >= WIN_VERSION_11_21H2)
+		{
+			ppSHChangeNotification_Lock = FindImportPtr(hExplorer, "api-ms-win-shell-changenotify-l1-1-1.dll", "SHChangeNotification_Lock");
+			ppSHChangeNotification_Unlock = FindImportPtr(hExplorer, "api-ms-win-shell-changenotify-l1-1-1.dll", "SHChangeNotification_Unlock");
+		}
+		else
+		{
+			ppSHChangeNotification_Lock = FindImportPtr(hExplorer, "shell32.dll", MAKEINTRESOURCEA(644));
+			ppSHChangeNotification_Unlock = FindImportPtr(hExplorer, "shell32.dll", MAKEINTRESOURCEA(645));
+		}
 	}
 	else if(nWinVersion >= WIN_VERSION_81)
 	{
@@ -173,6 +237,17 @@ DWORD WndProcInit(int pOptions[OPTS_COUNT])
 	else if(nWinVersion >= WIN_VERSION_8)
 	{
 		ppMulDiv = FindImportPtr(hExplorer, "api-ms-win-core-kernel32-legacy-l1-1-0.dll", "MulDiv");
+	}
+
+	if(nWinVersion >= WIN_VERSION_10_T1)
+	{
+		if(!(ppSetWindowCompositionAttribute = FindImportPtr(hExplorer, "user32.dll", "SetWindowCompositionAttribute")))
+			return LIB_ERR_FIND_IMPORT_1;
+	}
+	else
+	{
+		if(!(ppDwmEnableBlurBehindWindow = FindImportPtr(hExplorer, "dwmapi.dll", "DwmEnableBlurBehindWindow")))
+			return LIB_ERR_FIND_IMPORT_1;
 	}
 
 	if(nWinVersion == WIN_VERSION_7)
@@ -610,7 +685,7 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 	{
 		if(bGetCaptureHooked)
 		{
-			MHP_HookGetCapture(NULL);
+			PointerRedirectionRemove(ppGetCapture, &prGetCapture);
 			bGetCaptureHooked = FALSE;
 		}
 	}
@@ -903,15 +978,27 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 
 		if((nOldOptionsEx[OPT_EX_DISABLE_TASKBAR_TRANSPARENCY] != 0) != (pNewOptionsEx[OPT_EX_DISABLE_TASKBAR_TRANSPARENCY] != 0))
 		{
-			if(pNewOptionsEx[OPT_EX_DISABLE_TASKBAR_TRANSPARENCY])
+			if(nWinVersion >= WIN_VERSION_10_T1)
 			{
-				EnableTaskbarBlurBehindWindow((nWinVersion >= WIN_VERSION_8) ? TRUE : FALSE);
-				MHP_HookDwmEnableBlurBehindWindow(DwmEnableBlurBehindWindowHook);
+				if(pNewOptionsEx[OPT_EX_DISABLE_TASKBAR_TRANSPARENCY])
+				{
+					PointerRedirectionAdd(ppSetWindowCompositionAttribute, SetWindowCompositionAttributeHook, &prSetWindowCompositionAttribute);
+				}
+				else
+				{
+					PointerRedirectionRemove(ppSetWindowCompositionAttribute, &prSetWindowCompositionAttribute);
+				}
 			}
 			else
 			{
-				MHP_HookDwmEnableBlurBehindWindow(NULL);
-				EnableTaskbarBlurBehindWindow((nWinVersion >= WIN_VERSION_8) ? FALSE : TRUE);
+				if(pNewOptionsEx[OPT_EX_DISABLE_TASKBAR_TRANSPARENCY])
+				{
+					PointerRedirectionAdd(ppDwmEnableBlurBehindWindow, DwmEnableBlurBehindWindowHook, &prDwmEnableBlurBehindWindow);
+				}
+				else
+				{
+					PointerRedirectionRemove(ppDwmEnableBlurBehindWindow, &prDwmEnableBlurBehindWindow);
+				}
 			}
 		}
 
@@ -919,12 +1006,6 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 		{
 			CloseThemeData(hTaskbarNonCompositionTheme);
 			hTaskbarNonCompositionTheme = NULL;
-		}
-
-		if((nOldOptionsEx[OPT_EX_DISABLE_TASKBAR_TRANSPARENCY] == 2 || pNewOptionsEx[OPT_EX_DISABLE_TASKBAR_TRANSPARENCY] == 2) &&
-			nWinVersion == WIN_VERSION_7)
-		{
-			SendMessage(hTaskbarWnd, WM_THEMECHANGED, 0, 0);
 		}
 	}
 
@@ -963,6 +1044,56 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 		}
 
 		SetWindowPos(hTaskSwWnd, NULL, 0, 0, cx, cy, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+
+		lpSecondaryTaskListLongPtr = SecondaryTaskListGetFirstLongPtr(&secondary_task_list_get);
+		while(lpSecondaryTaskListLongPtr)
+		{
+			LONG_PTR lpSecondaryTaskBandLongPtr = EV_MM_TASKLIST_SECONDARY_TASK_BAND_LONG_PTR_VALUE(lpSecondaryTaskListLongPtr);
+			LONG_PTR lpSecondaryTaskbarLongPtr = EV_SECONDARY_TASK_BAND_SECONDARY_TASKBAR_LONG_PTR_VALUE(lpSecondaryTaskBandLongPtr);
+
+			HWND hSecondaryTaskBandWnd = *EV_SECONDARY_TASK_BAND_HWND(lpSecondaryTaskBandLongPtr);
+
+			GetWindowRect(hSecondaryTaskBandWnd, &rc);
+			long cx = rc.right - rc.left;
+			long cy = rc.bottom - rc.top;
+
+			if(pNewOptions[OPT_OTHER_EXTRAEMPTY] == 0)
+			{
+				int nSecondaryTaskbarPos = *EV_SECONDARY_TASKBAR_POS(lpSecondaryTaskbarLongPtr);
+				switch(nSecondaryTaskbarPos)
+				{
+				case 1: // Is taskbar on top of the screen
+				case 3: // Is taskbar on bottom of the screen
+					cx += GetSystemMetrics(SM_CXICON);
+					break;
+				}
+			}
+
+			SetWindowPos(hSecondaryTaskBandWnd, NULL, 0, 0, cx, cy, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+
+			lpSecondaryTaskListLongPtr = SecondaryTaskListGetNextLongPtr(&secondary_task_list_get);
+		}
+	}
+
+	if(nOldOptionsEx[OPT_EX_DISABLE_TASKBAR_TRANSPARENCY] != pNewOptionsEx[OPT_EX_DISABLE_TASKBAR_TRANSPARENCY])
+	{
+		if(nWinVersion == WIN_VERSION_7)
+			SendMessage(hTaskbarWnd, WM_DWMCOMPOSITIONCHANGED, 0, 0);
+
+		SendMessage(hTaskbarWnd, WM_THEMECHANGED, 0, 0);
+
+		lpSecondaryTaskListLongPtr = SecondaryTaskListGetFirstLongPtr(&secondary_task_list_get);
+		while(lpSecondaryTaskListLongPtr)
+		{
+			LONG_PTR lpSecondaryTaskBandLongPtr = EV_MM_TASKLIST_SECONDARY_TASK_BAND_LONG_PTR_VALUE(lpSecondaryTaskListLongPtr);
+			LONG_PTR lpSecondaryTaskbarLongPtr = EV_SECONDARY_TASK_BAND_SECONDARY_TASKBAR_LONG_PTR_VALUE(lpSecondaryTaskBandLongPtr);
+
+			HWND hSecondaryTaskbarWnd = *EV_SECONDARY_TASKBAR_HWND(lpSecondaryTaskbarLongPtr);
+
+			SendMessage(hSecondaryTaskbarWnd, WM_THEMECHANGED, 0, 0);
+
+			lpSecondaryTaskListLongPtr = SecondaryTaskListGetNextLongPtr(&secondary_task_list_get);
+		}
 	}
 
 	if(
@@ -997,7 +1128,7 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 			}
 		}
 	}
-	else
+	else // if(nWinVersion >= WIN_VERSION_10_R1)
 	{
 		if((nOldOptions[OPT_OTHER_CLOCKSHOWSEC] == 1) != (pNewOptions[OPT_OTHER_CLOCKSHOWSEC] == 1))
 		{
@@ -1531,6 +1662,7 @@ static LRESULT CALLBACK NewMMTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 	POINT pt;
 	BOOL bMutedAndNotZero;
 	BOOL bProcessed;
+	int nTaskbarPos;
 	LRESULT result;
 
 	wnd_proc_call_counter++;
@@ -1585,19 +1717,29 @@ static LRESULT CALLBACK NewMMTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 		else
 		{
 			GetWindowRect(hTaskSwWnd, &rc);
+		}
 
-			if(nOptions[OPT_OTHER_EXTRAEMPTY] == 1)
+		if(hWnd != hTaskbarWnd)
+		{
+			// Secondary taskbar (multimonitor environment)
+			nTaskbarPos = *EV_SECONDARY_TASKBAR_POS(lpMMTaskbarLongPtr);
+		}
+		else
+		{
+			nTaskbarPos = *EV_TASKBAR_POS();
+		}
+
+		if(nOptions[OPT_OTHER_EXTRAEMPTY] == 1)
+		{
+			switch(nTaskbarPos)
 			{
-				switch(*EV_TASKBAR_POS())
-				{
-				case 1: // Is taskbar on top of the screen
-				case 3: // Is taskbar on bottom of the screen
-					if(GetWindowLongPtr(hWnd, GWL_EXSTYLE) & WS_EX_LAYOUTRTL)
-						rc.left -= GetSystemMetrics(SM_CXICON);
-					else
-						rc.right += GetSystemMetrics(SM_CXICON);
-					break;
-				}
+			case 1: // Is taskbar on top of the screen
+			case 3: // Is taskbar on bottom of the screen
+				if(GetWindowLongPtr(hWnd, GWL_EXSTYLE) & WS_EX_LAYOUTRTL)
+					rc.left -= GetSystemMetrics(SM_CXICON);
+				else
+					rc.right += GetSystemMetrics(SM_CXICON);
+				break;
 			}
 		}
 
@@ -1611,18 +1753,6 @@ static LRESULT CALLBACK NewMMTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 			if((uMsg == WM_LBUTTONUP || uMsg == WM_NCLBUTTONUP || uMsg == WM_RBUTTONUP || uMsg == WM_NCRBUTTONUP) &&
 				nOptions[OPT_OTHER_NOSTARTBTN] && nWinVersion >= WIN_VERSION_10_T1)
 			{
-				int nTaskbarPos;
-
-				if(hWnd != hTaskbarWnd)
-				{
-					// Secondary taskbar (multimonitor environment)
-					nTaskbarPos = *EV_SECONDARY_TASKBAR_POS(lpMMTaskbarLongPtr);
-				}
-				else
-				{
-					nTaskbarPos = *EV_TASKBAR_POS();
-				}
-
 				pt.x = GET_X_LPARAM(lParam);
 				pt.y = GET_Y_LPARAM(lParam);
 
@@ -1836,8 +1966,12 @@ static LRESULT CALLBACK NewMMTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 					else if(nWinVersion >= WIN_VERSION_10_R1)
 					{
 						LONG_PTR lpSecondaryTrayClockLongPtr = *EV_SECONDARY_TASKBAR_CLOCK_LONG_PTR(lpMMTaskbarLongPtr);
-						HWND hSecondaryClockButtonWnd = *EV_CLOCK_BUTTON_HWND(lpSecondaryTrayClockLongPtr);
-						GetWindowRect(hSecondaryClockButtonWnd, &rc);
+
+						if(lpSecondaryTrayClockLongPtr)
+						{
+							HWND hSecondaryClockButtonWnd = *EV_CLOCK_BUTTON_HWND(lpSecondaryTrayClockLongPtr);
+							GetWindowRect(hSecondaryClockButtonWnd, &rc);
+						}
 					}
 					else // no notification area on secondary taskbars
 					{
@@ -1978,6 +2112,7 @@ static LRESULT CALLBACK NewMMTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 
 static LRESULT CALLBACK NewTaskBandProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
+	int nTaskbarPos;
 	LRESULT result;
 
 	wnd_proc_call_counter++;
@@ -1985,6 +2120,23 @@ static LRESULT CALLBACK NewTaskBandProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 	switch(uMsg)
 	{
 	case WM_WINDOWPOSCHANGING:
+		if(nOptions[OPT_OTHER_EXTRAEMPTY] == 1 && hWnd != hTaskBandWnd && !(((WINDOWPOS *)lParam)->flags & SWP_NOSIZE))
+		{
+			LONG_PTR lp = GetWindowLongPtr(hWnd, 0);
+			lp = EV_SECONDARY_TASK_BAND_SECONDARY_TASKBAR_LONG_PTR_VALUE(lp);
+			nTaskbarPos = *EV_SECONDARY_TASKBAR_POS(lp);
+
+			switch(nTaskbarPos)
+			{
+			case 1: // Is taskbar on top of the screen
+			case 3: // Is taskbar on bottom of the screen
+				((WINDOWPOS *)lParam)->cx -= GetSystemMetrics(SM_CXICON);
+				if(((WINDOWPOS *)lParam)->cx < 0)
+					((WINDOWPOS *)lParam)->cx = 0;
+				break;
+			}
+		}
+
 		if(nOptions[OPT_OTHER_NOSTARTBTN] && nWinVersion >= WIN_VERSION_81 && !(((WINDOWPOS *)lParam)->flags & SWP_NOSIZE))
 		{
 			if(nWinVersion <= WIN_VERSION_811)
@@ -1997,12 +2149,10 @@ static LRESULT CALLBACK NewTaskBandProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 				}
 
 				int nSpacing;
-				int nTaskbarPos;
 
 				if(hWnd == hTaskBandWnd)
 				{
 					MARGINS margins;
-
 					SendMessage(hWnd, RB_GETBANDMARGINS, 0, (LPARAM)&margins);
 
 					if(margins.cxLeftWidth < nDesiredSpacing)
@@ -2014,11 +2164,9 @@ static LRESULT CALLBACK NewTaskBandProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 				}
 				else // Secondary taskbar (multimonitor environment)
 				{
-					LONG_PTR lp;
-
 					nSpacing = nDesiredSpacing;
 
-					lp = GetWindowLongPtr(hWnd, 0);
+					LONG_PTR lp = GetWindowLongPtr(hWnd, 0);
 					lp = EV_SECONDARY_TASK_BAND_SECONDARY_TASKBAR_LONG_PTR_VALUE(lp);
 					nTaskbarPos = *EV_SECONDARY_TASKBAR_POS(lp);
 				}
@@ -2046,9 +2194,8 @@ static LRESULT CALLBACK NewTaskBandProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 					break;
 				}
 			}
-			else // nWinVersion >= WIN_VERSION_10_T1
+			else // if(nWinVersion >= WIN_VERSION_10_T1)
 			{
-				int nTaskbarPos;
 				HWND hStartBtnWnd;
 
 				if(hWnd == hTaskBandWnd)
@@ -2155,9 +2302,13 @@ static LRESULT CALLBACK NewTaskSwProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 			if(nOptions[OPT_GROUPING_RIGHTDRAG] == 1 && ComFuncIsAttachPending(hButtonWnd))
 			{
 				// Animation causes troubles when moving between groups, so we disable it
-				SendMessage(hTaskListWnd, WM_SETREDRAW, FALSE, 0);
+				LONG_PTR *pMainTaskListAnimationManager;
+				ANIMATION_MANAGER_ITEM *lpSeconadryTaskListAnimationManagers;
+				DisableTaskbarsAnimation(&pMainTaskListAnimationManager, &lpSeconadryTaskListAnimationManagers);
+
 				result = DefSubclassProc(hWnd, uMsg, wParam, lParam);
-				SendMessage(hTaskListWnd, WM_SETREDRAW, TRUE, 0);
+
+				RestoreTaskbarsAnimation(pMainTaskListAnimationManager, lpSeconadryTaskListAnimationManagers);
 			}
 			else
 				result = DefSubclassProc(hWnd, uMsg, wParam, lParam);
@@ -2289,7 +2440,7 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 				{
 					if(!bGetCaptureHooked)
 					{
-						MHP_HookGetCapture(GetCaptureHook);
+						PointerRedirectionAdd(ppGetCapture, GetCaptureHook, &prGetCapture);
 						bGetCaptureHooked = TRUE;
 					}
 
@@ -2549,11 +2700,11 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 					if(((nOption == 5) ? GetKeyState(VK_SHIFT) < 0 : GetKeyState(VK_SHIFT) >= 0) && !bGetKeyStateHooked)
 					{
 						bGetKeyStateHooked = TRUE;
-						MHP_HookGetKeyState(GetKeyStateInvertShiftHook);
+						PointerRedirectionAdd(ppGetKeyState, GetKeyStateInvertShiftHook, &prGetKeyState);
 
 						result = DefSubclassProc(hWnd, WM_RBUTTONUP, wParam & ~(MK_SHIFT | MK_CONTROL), lParam);
 
-						MHP_HookGetKeyState(NULL);
+						PointerRedirectionRemove(ppGetKeyState, &prGetKeyState);
 						bGetKeyStateHooked = FALSE;
 					}
 					else
@@ -2633,11 +2784,11 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 		if(!bControllingContextMenu && nOptions[OPT_RCLICK] == 1 && !bGetKeyStateHooked)
 		{
 			bGetKeyStateHooked = TRUE;
-			MHP_HookGetKeyState(GetKeyStateInvertShiftHook);
+			PointerRedirectionAdd(ppGetKeyState, GetKeyStateInvertShiftHook, &prGetKeyState);
 
 			result = DefSubclassProc(hWnd, uMsg, wParam, lParam);
 
-			MHP_HookGetKeyState(NULL);
+			PointerRedirectionRemove(ppGetKeyState, &prGetKeyState);
 			bGetKeyStateHooked = FALSE;
 		}
 		else
@@ -2651,7 +2802,7 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 
 		if(bGetCaptureHooked)
 		{
-			MHP_HookGetCapture(NULL);
+			PointerRedirectionRemove(ppGetCapture, &prGetCapture);
 			bGetCaptureHooked = FALSE;
 		}
 
@@ -3179,7 +3330,7 @@ static LRESULT CALLBACK NewTrayToolbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, 
 			*EV_TRAY_NOTIFY_PTRDEV_SUPPORTED(lpTrayNotifyLongPtr) = 1;
 			*EV_TRAY_NOTIFY_PTRDEV_SUPPORTED_VALID(lpTrayNotifyLongPtr) = 1;
 
-			MHP_HookGetSystemMetrics(GetSystemMetricsHook);
+			PointerRedirectionAdd(ppGetSystemMetrics, GetSystemMetricsHook, &prGetSystemMetrics);
 		}
 		break;
 
@@ -4093,21 +4244,17 @@ static void GetSecondaryTaskListWindows(LONG_PTR lpSecondaryTaskListLongPtr,
 	*phSecondaryThumbnailWnd = *EV_MM_THUMBNAIL_HWND(lpSecondaryThumbnailLongPtr);
 }
 
-static HWND WINAPI GetCaptureHook(void *pRetAddr)
+static HWND WINAPI GetCaptureHook(void)
 {
-	if(
-		(ULONG_PTR)pRetAddr >= (ULONG_PTR)ExplorerModuleInfo.lpBaseOfDll &&
-		(ULONG_PTR)pRetAddr < (ULONG_PTR)ExplorerModuleInfo.lpBaseOfDll + ExplorerModuleInfo.SizeOfImage &&
-		GetCurrentThreadId() == dwTaskbarThreadId
-	)
+	if(GetCurrentThreadId() == dwTaskbarThreadId)
 		return NULL;
 
-	return OriginalGetCapture();
+	return ((HWND(WINAPI *)())prGetCapture.pOriginalAddress)();
 }
 
-static SHORT WINAPI GetKeyStateInvertShiftHook(void *pRetAddr, int nVirtKey)
+static SHORT WINAPI GetKeyStateInvertShiftHook(int nVirtKey)
 {
-	SHORT nRet = OriginalGetKeyState(nVirtKey);
+	SHORT nRet = ((SHORT(WINAPI *)(int))prGetKeyState.pOriginalAddress)(nVirtKey);
 
 	if(GetCurrentThreadId() == dwTaskbarThreadId)
 	{
@@ -4154,7 +4301,7 @@ static BOOL WINAPI SetWindowPosHook(HWND hWnd, HWND hWndInsertAfter, int X, int 
 					if(lp)
 						hSearchBtnWnd = *EV_TRAY_BUTTON_HWND(lp);
 
-					if(nWinVersion >= WIN_VERSION_10_19H1)
+					if(nWinVersion >= WIN_VERSION_10_19H1 && nWinVersion <= WIN_VERSION_11_21H2)
 					{
 						lp = *EV_TASKBAR_CORTANA_LONG_PTR();
 						if(lp)
@@ -4169,9 +4316,9 @@ static BOOL WINAPI SetWindowPosHook(HWND hWnd, HWND hWndInsertAfter, int X, int 
 					if(lp)
 						hBackBtnWnd = *EV_TRAY_BUTTON_HWND(lp);
 
-					HWND *hExtraWnds = *EV_TASKBAR_EXTRA_BTN_HWNDS();
-					if(hExtraWnds)
-						hSearchBarWnd = hExtraWnds[0];
+					lp = *EV_TASKBAR_TRAY_SEARCH_CONTROL();
+					if(lp)
+						hSearchBarWnd = *EV_TRAY_SEARCH_CONTROL_BUTTON_HWND(lp);
 				}
 				else
 				{
@@ -4186,7 +4333,7 @@ static BOOL WINAPI SetWindowPosHook(HWND hWnd, HWND hWndInsertAfter, int X, int 
 					if(lp)
 						hSearchBtnWnd = *EV_TRAY_BUTTON_HWND(lp);
 
-					if(nWinVersion >= WIN_VERSION_10_19H1)
+					if(nWinVersion >= WIN_VERSION_10_19H1 && nWinVersion <= WIN_VERSION_11_21H2)
 					{
 						lp = *EV_SECONDARY_TASKBAR_CORTANA_LONG_PTR(lpSecondaryTaskbarLongPtr);
 						if(lp)
@@ -4276,7 +4423,7 @@ static int WINAPI MulDivHook(int nNumber, int nNumerator, int nDenominator)
 	{
 		if(nOptionsEx[OPT_EX_W10_LARGE_ICONS] && nWinVersion >= WIN_VERSION_10_T1 &&
 			nInTrayNotifyWndWindowPosChanged == 0 && // prevents the touch keyboard button from getting bigger
-			(ComFuncIsInGetIdealSpan() || nMulDivHookLargeIconsCounter > 0)
+			(ComFuncIsInHandleDelayInitStuff() || ComFuncIsInGetIdealSpan() || nMulDivHookLargeIconsCounter > 0)
 		)
 		{
 			if(nNumber == 24 && nDenominator == 96)
@@ -4370,15 +4517,11 @@ static HWND WINAPI ChildWindowFromPointHook(HWND hWndParent, POINT Point)
 	return ((HWND(WINAPI *)(HWND, POINT))prChildWindowFromPoint.pOriginalAddress)(hWndParent, Point);
 }
 
-static HRESULT WINAPI DwmEnableBlurBehindWindowHook(void *pRetAddr, HWND hWnd, const DWM_BLURBEHIND *pBlurBehind)
+static HRESULT WINAPI DwmEnableBlurBehindWindowHook(HWND hWnd, const DWM_BLURBEHIND *pBlurBehind)
 {
 	DWM_BLURBEHIND dwmNewBlurBehind;
 
-	if(
-		(ULONG_PTR)pRetAddr >= (ULONG_PTR)ExplorerModuleInfo.lpBaseOfDll &&
-		(ULONG_PTR)pRetAddr < (ULONG_PTR)ExplorerModuleInfo.lpBaseOfDll + ExplorerModuleInfo.SizeOfImage &&
-		GetCurrentThreadId() == dwTaskbarThreadId
-	)
+	if(GetCurrentThreadId() == dwTaskbarThreadId)
 	{
 		if((!!pBlurBehind->fEnable) == (nWinVersion >= WIN_VERSION_8) ? FALSE : TRUE)
 		{
@@ -4392,22 +4535,44 @@ static HRESULT WINAPI DwmEnableBlurBehindWindowHook(void *pRetAddr, HWND hWnd, c
 		}
 	}
 
-	return OriginalDwmEnableBlurBehindWindow(hWnd, pBlurBehind);
+	return ((HRESULT(WINAPI *)(HWND, const DWM_BLURBEHIND *))prDwmEnableBlurBehindWindow.pOriginalAddress)(hWnd, pBlurBehind);
 }
 
-static int WINAPI GetSystemMetricsHook(void *pRetAddr, int nIndex)
+static BOOL WINAPI SetWindowCompositionAttributeHook(HWND hWnd, const WINDOWCOMPOSITIONATTRIBDATA *pAttribute)
 {
-	int nRet = OriginalGetSystemMetrics(nIndex);
+	WINDOWCOMPOSITIONATTRIBDATA newAttribute;
+	BYTE newPolicyBuffer[256];
 
-	if(
-		(ULONG_PTR)pRetAddr >= (ULONG_PTR)ExplorerModuleInfo.lpBaseOfDll &&
-		(ULONG_PTR)pRetAddr < (ULONG_PTR)ExplorerModuleInfo.lpBaseOfDll + ExplorerModuleInfo.SizeOfImage &&
-		GetCurrentThreadId() == dwTaskbarThreadId
-	)
+	if(GetCurrentThreadId() == dwTaskbarThreadId)
+	{
+		if(pAttribute->Attrib == WCA_ACCENT_POLICY && pAttribute->cbData >= sizeof(ACCENT_STATE) && pAttribute->cbData <= 256)
+		{
+			if(IsTaskbarWindow(hWnd))
+			{
+				CopyMemory(newPolicyBuffer, pAttribute->pvData, pAttribute->cbData);
+
+				ACCENT_POLICY *newPolicy = (ACCENT_POLICY *)newPolicyBuffer;
+				newPolicy->AccentState = nOptionsEx[OPT_EX_DISABLE_TASKBAR_TRANSPARENCY];
+
+				newAttribute = *pAttribute;
+				newAttribute.pvData = newPolicy;
+				pAttribute = &newAttribute;
+			}
+		}
+	}
+
+	return ((BOOL(WINAPI *)(HWND, const WINDOWCOMPOSITIONATTRIBDATA *))prSetWindowCompositionAttribute.pOriginalAddress)(hWnd, pAttribute);
+}
+
+static int WINAPI GetSystemMetricsHook(int nIndex)
+{
+	int nRet = ((int(WINAPI *)(int))prGetSystemMetrics.pOriginalAddress)(nIndex);
+
+	if(GetCurrentThreadId() == dwTaskbarThreadId)
 	{
 		if(nIndex == SM_CXSMICON)
 		{
-			MHP_HookGetSystemMetrics(NULL);
+			PointerRedirectionRemove(ppGetSystemMetrics, &prGetSystemMetrics);
 
 			LONG_PTR lpTrayNotifyLongPtr = GetWindowLongPtr(hTrayNotifyWnd, 0);
 			*EV_TRAY_NOTIFY_PTRDEV_SUPPORTED(lpTrayNotifyLongPtr) = bPrevPtrDevSupported;

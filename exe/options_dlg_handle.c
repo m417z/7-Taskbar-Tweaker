@@ -10,7 +10,7 @@ void InitDlg(HWND hWnd, int pOptions[OPTS_COUNT])
 	int nCtrlId;
 	WCHAR szClassName[16];
 	DWORD dwStyle;
-	RECT rcSectionGroupbox = {0};
+	RECT rcSectionGroupbox = { 0 };
 	int nOption = -1;
 	int nOptionValue;
 	int nComboBoxCount = 0;
@@ -45,7 +45,7 @@ void InitDlg(HWND hWnd, int pOptions[OPTS_COUNT])
 					rc.bottom = rcSectionGroupbox.bottom;
 
 					MapWindowPoints(NULL, hWnd, (POINT *)&rc, 2);
-					MoveWindow(hCtrlWnd, rc.left, rc.top, rc.right-rc.left, rc.bottom-rc.top, TRUE);
+					MoveWindow(hCtrlWnd, rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, TRUE);
 				}
 				else
 					rcSectionGroupbox = rc;
@@ -55,9 +55,9 @@ void InitDlg(HWND hWnd, int pOptions[OPTS_COUNT])
 				nOption++;
 				option_controls[nOption] = nCtrlId;
 
-				ctrl_info[nCtrlId-IDC___OPTION_FIRST___].nCtrlType = CTRL_TYPE_CHECKBOX;
-				ctrl_info[nCtrlId-IDC___OPTION_FIRST___].nOption = nOption;
-				ctrl_info[nCtrlId-IDC___OPTION_FIRST___].nExtra = pOptions[nOption];
+				ctrl_info[nCtrlId - IDC___OPTION_FIRST___].nCtrlType = CTRL_TYPE_CHECKBOX;
+				ctrl_info[nCtrlId - IDC___OPTION_FIRST___].nOption = nOption;
+				ctrl_info[nCtrlId - IDC___OPTION_FIRST___].nExtra = pOptions[nOption];
 
 				if(pOptions[nOption])
 					CheckDlgButton(hWnd, nCtrlId, BST_CHECKED);
@@ -74,9 +74,9 @@ void InitDlg(HWND hWnd, int pOptions[OPTS_COUNT])
 				else
 					nOptionValue++;
 
-				ctrl_info[nCtrlId-IDC___OPTION_FIRST___].nCtrlType = CTRL_TYPE_RADIOBUTTON;
-				ctrl_info[nCtrlId-IDC___OPTION_FIRST___].nOption = nOption;
-				ctrl_info[nCtrlId-IDC___OPTION_FIRST___].nExtra = nOptionValue;
+				ctrl_info[nCtrlId - IDC___OPTION_FIRST___].nCtrlType = CTRL_TYPE_RADIOBUTTON;
+				ctrl_info[nCtrlId - IDC___OPTION_FIRST___].nOption = nOption;
+				ctrl_info[nCtrlId - IDC___OPTION_FIRST___].nExtra = nOptionValue;
 
 				if(pOptions[nOption] == nOptionValue)
 					CheckDlgButton(hWnd, nCtrlId, BST_CHECKED);
@@ -89,14 +89,14 @@ void InitDlg(HWND hWnd, int pOptions[OPTS_COUNT])
 			nOption++;
 			option_controls[nOption] = nCtrlId;
 
-			ctrl_info[nCtrlId-IDC___OPTION_FIRST___].nCtrlType = CTRL_TYPE_COMBOBOX;
-			ctrl_info[nCtrlId-IDC___OPTION_FIRST___].nOption = nOption;
+			ctrl_info[nCtrlId - IDC___OPTION_FIRST___].nCtrlType = CTRL_TYPE_COMBOBOX;
+			ctrl_info[nCtrlId - IDC___OPTION_FIRST___].nOption = nOption;
 
 			nComboBoxMaxWidth = 0;
 
-			for(i=0; i <= opts_max_values[nOption]; i++)
+			for(i = 0; i <= opts_max_values[nOption]; i++)
 			{
-				pComboBoxStr = LoadStrFromRsrc(uComboBoxTexts[nComboBoxCount]+i);
+				pComboBoxStr = LoadStrFromRsrc(uComboBoxTexts[nComboBoxCount] + i);
 
 				nComboBoxWidth = MeasureStringWidthForCombo(hCtrlWnd, pComboBoxStr);
 				if(nComboBoxWidth > nComboBoxMaxWidth)
@@ -105,7 +105,7 @@ void InitDlg(HWND hWnd, int pOptions[OPTS_COUNT])
 				SendMessage(hCtrlWnd, CB_ADDSTRING, 0, (LPARAM)pComboBoxStr);
 			}
 
-			SendMessage(hCtrlWnd, CB_SETDROPPEDWIDTH, nComboBoxMaxWidth+GetSystemMetrics(SM_CXEDGE)*2, 0);
+			SendMessage(hCtrlWnd, CB_SETDROPPEDWIDTH, nComboBoxMaxWidth + GetSystemMetrics(SM_CXEDGE) * 2, 0);
 			SendMessage(hCtrlWnd, CB_SETCURSEL, pOptions[nOption], 0);
 
 			nComboBoxCount++;
@@ -148,31 +148,31 @@ BOOL OptionsUpdFromDlg(HWND hWnd, int nCtrlId, int nNotificationCode, int pOptio
 	int nRuleOptionValue;
 	int nRuleCtrlId;
 
-	switch(ctrl_info[nCtrlId-IDC___OPTION_FIRST___].nCtrlType)
+	switch(ctrl_info[nCtrlId - IDC___OPTION_FIRST___].nCtrlType)
 	{
 	case CTRL_TYPE_CHECKBOX:
 		if(nNotificationCode != BN_CLICKED)
 			return FALSE;
 
-		ctrl_info[nCtrlId-IDC___OPTION_FIRST___].nExtra = !ctrl_info[nCtrlId-IDC___OPTION_FIRST___].nExtra;
+		ctrl_info[nCtrlId - IDC___OPTION_FIRST___].nExtra = !ctrl_info[nCtrlId - IDC___OPTION_FIRST___].nExtra;
 
-		nOption = ctrl_info[nCtrlId-IDC___OPTION_FIRST___].nOption;
-		nNewOptionValue = ctrl_info[nCtrlId-IDC___OPTION_FIRST___].nExtra;
+		nOption = ctrl_info[nCtrlId - IDC___OPTION_FIRST___].nOption;
+		nNewOptionValue = ctrl_info[nCtrlId - IDC___OPTION_FIRST___].nExtra;
 		break;
 
 	case CTRL_TYPE_RADIOBUTTON:
 		if(nNotificationCode != BN_CLICKED)
 			return FALSE;
 
-		nOption = ctrl_info[nCtrlId-IDC___OPTION_FIRST___].nOption;
-		nNewOptionValue = ctrl_info[nCtrlId-IDC___OPTION_FIRST___].nExtra;
+		nOption = ctrl_info[nCtrlId - IDC___OPTION_FIRST___].nOption;
+		nNewOptionValue = ctrl_info[nCtrlId - IDC___OPTION_FIRST___].nExtra;
 		break;
 
 	case CTRL_TYPE_COMBOBOX:
 		if(nNotificationCode != CBN_SELCHANGE)
 			return FALSE;
 
-		nOption = ctrl_info[nCtrlId-IDC___OPTION_FIRST___].nOption;
+		nOption = ctrl_info[nCtrlId - IDC___OPTION_FIRST___].nOption;
 		nNewOptionValue = (int)SendDlgItemMessage(hWnd, nCtrlId, CB_GETCURSEL, 0, 0);
 		break;
 
@@ -197,10 +197,10 @@ BOOL OptionsUpdFromDlg(HWND hWnd, int nCtrlId, int nNotificationCode, int pOptio
 			{
 				nRuleCtrlId = option_controls[nRuleOption];
 
-				switch(ctrl_info[nRuleCtrlId-IDC___OPTION_FIRST___].nCtrlType)
+				switch(ctrl_info[nRuleCtrlId - IDC___OPTION_FIRST___].nCtrlType)
 				{
 				case CTRL_TYPE_CHECKBOX:
-					ctrl_info[nRuleCtrlId-IDC___OPTION_FIRST___].nExtra = nRuleOptionValue;
+					ctrl_info[nRuleCtrlId - IDC___OPTION_FIRST___].nExtra = nRuleOptionValue;
 					if(nRuleOptionValue)
 						CheckDlgButton(hWnd, nRuleCtrlId, BST_CHECKED);
 					else
@@ -208,8 +208,8 @@ BOOL OptionsUpdFromDlg(HWND hWnd, int nCtrlId, int nNotificationCode, int pOptio
 					break;
 
 				case CTRL_TYPE_RADIOBUTTON:
-					CheckDlgButton(hWnd, nRuleCtrlId+pOptions[nRuleOption], BST_UNCHECKED);
-					CheckDlgButton(hWnd, nRuleCtrlId+nRuleOptionValue, BST_CHECKED);
+					CheckDlgButton(hWnd, nRuleCtrlId + pOptions[nRuleOption], BST_UNCHECKED);
+					CheckDlgButton(hWnd, nRuleCtrlId + nRuleOptionValue, BST_CHECKED);
 					break;
 
 				case CTRL_TYPE_COMBOBOX:

@@ -306,7 +306,7 @@ static LSTATUS Reg_GetString(PS_SECTION *pSection, const WCHAR *pValueName, WCHA
 	LSTATUS error;
 
 	pData = pReturnedString;
-	dwSize = (*pStringSize)*sizeof(WCHAR);
+	dwSize = (*pStringSize) * sizeof(WCHAR);
 
 	if(dwSize < sizeof(DWORD))
 	{
@@ -365,7 +365,7 @@ static LSTATUS Reg_GetString(PS_SECTION *pSection, const WCHAR *pValueName, WCHA
 
 static LSTATUS Reg_SetString(PS_SECTION *pSection, const WCHAR *pValueName, const WCHAR *pString)
 {
-	return RegSetValueEx(pSection->hSubKey, pValueName, 0, REG_SZ, (BYTE *)pString, (lstrlen(pString) + 1)*sizeof(WCHAR));
+	return RegSetValueEx(pSection->hSubKey, pValueName, 0, REG_SZ, (BYTE *)pString, (lstrlen(pString) + 1) * sizeof(WCHAR));
 }
 
 static LSTATUS Reg_GetInt(PS_SECTION *pSection, const WCHAR *pValueName, int *pReturnedInt)
@@ -467,7 +467,7 @@ static LSTATUS Reg_FindNextString(PS_SECTION *pSection, PS_FIND *pFind,
 	dwValueNameSize = *pValueNameSize;
 
 	pData = pReturnedString;
-	dwSize = (*pStringSize)*sizeof(WCHAR);
+	dwSize = (*pStringSize) * sizeof(WCHAR);
 
 	if(dwSize < sizeof(DWORD))
 	{
@@ -808,7 +808,7 @@ static LSTATUS Ini_FindInit(PS_SECTION *pSection, PS_FIND *pFind)
 
 	uCharsAllocated = 1024;
 
-	pValueNames = (WCHAR *)HeapAlloc(GetProcessHeap(), 0, uCharsAllocated*sizeof(WCHAR));
+	pValueNames = (WCHAR *)HeapAlloc(GetProcessHeap(), 0, uCharsAllocated * sizeof(WCHAR));
 	if(!pValueNames)
 		return ERROR_OUTOFMEMORY;
 
@@ -823,7 +823,7 @@ static LSTATUS Ini_FindInit(PS_SECTION *pSection, PS_FIND *pFind)
 	{
 		uCharsAllocated += 1024;
 
-		pTemp = (WCHAR *)HeapReAlloc(GetProcessHeap(), 0, pValueNames, uCharsAllocated*sizeof(WCHAR));
+		pTemp = (WCHAR *)HeapReAlloc(GetProcessHeap(), 0, pValueNames, uCharsAllocated * sizeof(WCHAR));
 		if(!pTemp)
 		{
 			error = ERROR_OUTOFMEMORY;

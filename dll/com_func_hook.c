@@ -58,6 +58,9 @@ POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prCurrentVirtualDesktopChange
 static void **ppCurrentVirtualDesktopChangedAnimated;
 static void *pCurrentVirtualDesktopChangedAnimated;
 POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prCurrentVirtualDesktopChangedAnimated);
+static void **ppTaskBandExec;
+static void *pTaskBandExec;
+POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prTaskBandExec);
 static void **ppStartAnimation;
 static void *pStartAnimation;
 POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prStartAnimation);
@@ -100,6 +103,9 @@ POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prGetThumbRectFromIndex);
 static void **ppThumbIndexFromPoint;
 static void *pThumbIndexFromPoint;
 POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prThumbIndexFromPoint);
+static void **ppDestroyThumbnail;
+static void *pDestroyThumbnail;
+POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prDestroyThumbnail);
 static void **ppDoesWindowMatch;
 static void *pDoesWindowMatch;
 POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prDoesWindowMatch);
@@ -176,6 +182,7 @@ static int nSwitchToOption;
 static LONG_PTR lpSwitchToMMTaskListLongPtr;
 static BOOL bInMouseMove;
 static BOOL bInGetIdealSpan;
+static BOOL bInHandleDelayInitStuff;
 static BOOL bCustomDestinationMenuActionDone;
 static LONG_PTR *last_active_task_item;
 static int nThumbnailListReverseHack = -1;
@@ -214,6 +221,7 @@ static LONG_PTR __stdcall GetIconSizeHook2(LONG_PTR var1, LONG_PTR var2, LONG_PT
 static void GetIconSizeAndGetButtonHeightHack();
 static LONG_PTR __stdcall CurrentVirtualDesktopChangedHook(LONG_PTR this_ptr, LONG_PTR var2, LONG_PTR var3);
 static LONG_PTR __stdcall CurrentVirtualDesktopChangedAnimatedHook(LONG_PTR this_ptr, LONG_PTR var2, LONG_PTR var3);
+static LONG_PTR __stdcall TaskBandExecHook(LONG_PTR this_ptr, GUID *pGuid, LONG_PTR var3, LONG_PTR var4, LONG_PTR var5, LONG_PTR var6);
 static void HideAllTaskbarItems();
 static LONG_PTR __stdcall StartAnimationHook(LONG_PTR var1, void *pObject, int nAnimation);
 static int __stdcall GetStuckPlaceHook(LONG_PTR this_ptr);
@@ -235,6 +243,7 @@ static LONG_PTR __stdcall OnDestinationMenuDismissedHook(LONG_PTR this_ptr);
 static LONG_PTR __stdcall DisplayUIHook(LONG_PTR this_ptr, LONG_PTR *button_group, LONG_PTR var3, LONG_PTR var4, DWORD dwFlags);
 static LONG_PTR __stdcall GetThumbRectFromIndexHook(LONG_PTR this_ptr, int thumb_index, LONG_PTR var3, RECT *prcResult);
 static int __stdcall ThumbIndexFromPointHook(LONG_PTR this_ptr, POINT *ppt);
+static LONG_PTR __stdcall DestroyThumbnailHook(LONG_PTR this_ptr, LONG_PTR var2);
 static HRESULT __stdcall DoesWindowMatchHook(LONG_PTR *task_group, HWND hCompareWnd, ITEMIDLIST *pCompareItemIdList,
 	WCHAR *pCompareAppId, int *pnMatch, LONG_PTR **p_task_item);
 static BOOL FindTaskGroupPairInArrayWithSameAppId(LONG_PTR *task_group, LONG_PTR ***pp_task_group, LONG_PTR ***pp_task_group_other);
@@ -277,8 +286,8 @@ static ULONG __stdcall TaskGroupReleaseHook(LONG_PTR this_ptr);
 static ULONG __stdcall TaskItemReleaseHook(LONG_PTR this_ptr);
 
 // Hooks
-static BOOL CreateEnableHook(void** ppTarget, void* const pDetour, void** ppOriginal, POINTER_REDIRECTION *ppr);
-static BOOL DisableHook(void** ppTarget, POINTER_REDIRECTION *ppr);
+static BOOL CreateEnableHook(void **ppTarget, void *const pDetour, void **ppOriginal, POINTER_REDIRECTION *ppr);
+static BOOL DisableHook(void **ppTarget, POINTER_REDIRECTION *ppr);
 
 static BOOL MMMoveNearMatching(LONG_PTR lpMMTaskListLongPtr, HWND hButtonWnd);
 static BOOL CustomGetLabelAppidListValue(WCHAR *pAppId, int *pnListValue);
@@ -333,8 +342,7 @@ static BOOL HookFunctions()
 		return FALSE;
 
 	// CTaskBand::GetUserPreferences, IsHorizontal
-	plp = *(LONG_PTR **)(lpTaskListLongPtr + DO2_3264(0x38, 0x70, 0, 0 /* omitted from public code */));
-	plp = *(LONG_PTR **)plp;
+	plp = *(LONG_PTR **)(lpTaskSwLongPtr + DO2_3264(0x20, 0x40, 0, 0 /* omitted from public code */));
 
 	ppGetUserPreferences = (void **)&FUNC_CTaskBand_GetUserPreferences(plp);
 	if(!CreateEnableHook(ppGetUserPreferences, GetUserPreferencesHook, &pGetUserPreferences, &prGetUserPreferences))
@@ -345,17 +353,16 @@ static BOOL HookFunctions()
 		return FALSE;
 
 	// CTaskBand::GetIconId, SwitchTo, GetIconSize
-	plp = *(LONG_PTR **)(lpTaskListLongPtr + DO2_3264(0x38, 0x70, 0, 0 /* omitted from public code */));
-	plp = *(LONG_PTR **)plp;
+	plp = *(LONG_PTR **)(lpTaskSwLongPtr + DO2_3264(0x20, 0x40, 0, 0 /* omitted from public code */));
 
 	if(nWinVersion >= WIN_VERSION_10_T1)
 	{
-		ppGetIconId = (void**)&FUNC_CTaskBand_GetIconId(plp);
+		ppGetIconId = (void **)&FUNC_CTaskBand_GetIconId(plp);
 		if(!CreateEnableHook(ppGetIconId, GetIconIdHook, &pGetIconId, &prGetIconId))
 			return FALSE;
 	}
 
-	ppSwitchTo = (void**)&FUNC_CTaskBand_SwitchTo(plp);
+	ppSwitchTo = (void **)&FUNC_CTaskBand_SwitchTo(plp);
 	if(nWinVersion >= WIN_VERSION_811)
 	{
 		if(!CreateEnableHook(ppSwitchTo, SwitchToHook2, &pSwitchTo, &prSwitchTo))
@@ -367,7 +374,7 @@ static BOOL HookFunctions()
 			return FALSE;
 	}
 
-	ppGetIconSize = (void**)&FUNC_CTaskBand_GetIconSize(plp);
+	ppGetIconSize = (void **)&FUNC_CTaskBand_GetIconSize(plp);
 	if(nWinVersion == WIN_VERSION_81)
 	{
 		if(!CreateEnableHook(ppGetIconSize, GetIconSizeHook, &pGetIconSize, &prGetIconSize))
@@ -383,9 +390,9 @@ static BOOL HookFunctions()
 		// GetButtonHeight is hooked instead (see below)
 	}
 
-	// CTaskBand::CurrentVirtualDesktopChanged, CTaskBand::CurrentVirtualDesktopChangedAnimated
 	if(nWinVersion >= WIN_VERSION_10_T1)
 	{
+		// CTaskBand::CurrentVirtualDesktopChanged, CTaskBand::CurrentVirtualDesktopChangedAnimated
 		plp = *(LONG_PTR **)(lpTaskSwLongPtr + DEF3264(0x38, 0x70));
 
 		ppCurrentVirtualDesktopChanged = (void **)&FUNC_CTaskBand_CurrentVirtualDesktopChanged(plp);
@@ -396,6 +403,13 @@ static BOOL HookFunctions()
 
 		ppCurrentVirtualDesktopChangedAnimated = (void **)&FUNC_CTaskBand_CurrentVirtualDesktopChangedAnimated(plp);
 		if(!CreateEnableHook(ppCurrentVirtualDesktopChangedAnimated, CurrentVirtualDesktopChangedAnimatedHook, &pCurrentVirtualDesktopChangedAnimated, &prCurrentVirtualDesktopChangedAnimated))
+			return FALSE;
+
+		// CTaskBand::Exec
+		plp = *(LONG_PTR **)(lpTaskSwLongPtr + 0 /* omitted from public code */);
+
+		ppTaskBandExec = (void **)&FUNC_CTaskBand_Exec(plp);
+		if(!CreateEnableHook(ppTaskBandExec, TaskBandExecHook, &pTaskBandExec, &prTaskBandExec))
 			return FALSE;
 	}
 
@@ -416,7 +430,7 @@ static BOOL HookFunctions()
 	// TaskListWndInitialize (Windows 8+), TaskCreated, ActivateTask, TaskDestroyed (Until Windows 10 R1), TaskInclusionChanged, GetButtonHeight, DismissHoverUI, ShowJumpView
 	plp = *(LONG_PTR **)(lpTaskListLongPtr + DEF3264(0x14, 0x28));
 
-	ppTaskListWndInitialize = (void**)&FUNC_CTaskListWnd_Initialize(plp);
+	ppTaskListWndInitialize = (void **)&FUNC_CTaskListWnd_Initialize(plp);
 	if(nWinVersion >= WIN_VERSION_10_R2)
 	{
 		if(!CreateEnableHook(ppTaskListWndInitialize, TaskListWndInitializeHook3, &pTaskListWndInitialize, &prTaskListWndInitialize))
@@ -518,6 +532,13 @@ static BOOL HookFunctions()
 			return FALSE;
 	}
 
+	// CTaskListThumbnailWnd::DestroyThumbnail
+	plp = *(LONG_PTR **)(lpThumbnailLongPtr + DO2_3264(0x18, 0x30, 0, 0 /* omitted from public code */));
+
+	ppDestroyThumbnail = (void **)&FUNC_CTaskListThumbnailWnd_DestroyThumbnail(plp);
+	if(!CreateEnableHook(ppDestroyThumbnail, DestroyThumbnailHook, &pDestroyThumbnail, &prDestroyThumbnail))
+		return FALSE;
+
 	// TaskGroup functions hook
 	if(HookTaskGroupFunctions())
 	{
@@ -557,6 +578,7 @@ static void UnhookFunctions()
 	{
 		DisableHook(ppCurrentVirtualDesktopChanged, &prCurrentVirtualDesktopChanged);
 		DisableHook(ppCurrentVirtualDesktopChangedAnimated, &prCurrentVirtualDesktopChangedAnimated);
+		DisableHook(ppTaskBandExec, &prTaskBandExec);
 	}
 	DisableHook(ppStartAnimation, &prStartAnimation);
 	DisableHook(ppGetStuckPlace, &prGetStuckPlace);
@@ -580,6 +602,7 @@ static void UnhookFunctions()
 		DisableHook(ppGetThumbRectFromIndex, &prGetThumbRectFromIndex);
 		DisableHook(ppThumbIndexFromPoint, &prThumbIndexFromPoint);
 	}
+	DisableHook(ppDestroyThumbnail, &prDestroyThumbnail);
 
 	if(bTaskGroupFunctionsHooked)
 		UnhookTaskGroupFunctions();
@@ -949,7 +972,7 @@ static LONG_PTR __stdcall GetUserPreferencesHook(LONG_PTR var1, DWORD *pdwPrefer
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, DWORD *))pGetUserPreferences)(var1, pdwPreferences);
 
-	*pdwPreferences = ManipulateUserPreferences(*pdwPreferences, _ReturnAddress());
+	*pdwPreferences = ManipulateUserPreferences(*pdwPreferences, _AddressOfReturnAddress());
 
 	hook_proc_call_counter--;
 
@@ -1175,8 +1198,8 @@ static LONG_PTR __stdcall CurrentVirtualDesktopChangedHook(LONG_PTR this_ptr, LO
 	{
 		if(!bHadCurrentVirtualDesktopChangedAnimated)
 		{
-			LONG_PTR* pMainTaskListAnimationManager;
-			ANIMATION_MANAGER_ITEM* lpSeconadryTaskListAnimationManagers;
+			LONG_PTR *pMainTaskListAnimationManager;
+			ANIMATION_MANAGER_ITEM *lpSeconadryTaskListAnimationManagers;
 			DisableTaskbarsAnimation(&pMainTaskListAnimationManager, &lpSeconadryTaskListAnimationManagers);
 
 			HideAllTaskbarItems();
@@ -1216,6 +1239,30 @@ static LONG_PTR __stdcall CurrentVirtualDesktopChangedAnimatedHook(LONG_PTR this
 	}
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR, LONG_PTR))pCurrentVirtualDesktopChangedAnimated)(this_ptr, var2, var3);
+
+	hook_proc_call_counter--;
+
+	return lpRet;
+}
+
+static LONG_PTR __stdcall TaskBandExecHook(LONG_PTR this_ptr, GUID *pGuid, LONG_PTR var3, LONG_PTR var4, LONG_PTR var5, LONG_PTR var6)
+{
+	// assert(nWinVersion >= WIN_VERSION_10_T1)
+
+	LONG_PTR lpRet;
+
+	hook_proc_call_counter++;
+
+	// If called from BandSite_HandleDelayInitStuff -> CTrayBandSite::_BroadcastExec.
+	const char *IID_IDeskBand = "\x72\xE1\x0F\xEB\x3A\x1A\xD0\x11\x89\xB3\x00\xA0\xC9\x0A\x90\xAC";
+	if(memcmp(pGuid, IID_IDeskBand, sizeof(GUID)) == 0 && var3 == 5 && var4 == 0 && var5 == 0 && var6 == 0)
+	{
+		bInHandleDelayInitStuff = TRUE;
+		lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, GUID *, LONG_PTR, LONG_PTR, LONG_PTR, LONG_PTR))pTaskBandExec)(this_ptr, pGuid, var3, var4, var5, var6);
+		bInHandleDelayInitStuff = FALSE;
+	}
+	else
+		lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, GUID *, LONG_PTR, LONG_PTR, LONG_PTR, LONG_PTR))pTaskBandExec)(this_ptr, pGuid, var3, var4, var5, var6);
 
 	hook_proc_call_counter--;
 
@@ -2115,6 +2162,58 @@ static int __stdcall ThumbIndexFromPointHook(LONG_PTR this_ptr, POINT *ppt)
 	return nRet;
 }
 
+static LONG_PTR __stdcall DestroyThumbnailHook(LONG_PTR this_ptr, LONG_PTR var2)
+{
+	LONG_PTR lpMMThumbnailLongPtr;
+	LONG_PTR lpRet;
+
+	hook_proc_call_counter++;
+
+	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR))pDestroyThumbnail)(this_ptr, var2);
+
+	// The DestroyThumbnail function has a bug - if the destroyed thumbnail is
+	// active/focused/etc., its index is not adjusted, which can cause an out
+	// of bounds access later. This is more likely to happen with right drag,
+	// so in order to minimize side effects, only enable it with this option.
+	// Steps to reproduce:
+	// * Open 3 Notepad instances.
+	// * Rapidly detach and re-attach the rightmost item with the right mouse.
+	//   Make sure that thumbnails are visible at that time, and try to make
+	//   the rightmost item focused most of the time.
+	// A crash is likely to happen with this stack trace:
+	// * CTaskThumbnail::StartAnimation
+	// * CTaskListThumbnailWnd::SetHotItem
+	// * CTaskListWnd::_SetHotItem
+	// * CTaskListWnd::_HandleMouseMove
+	// * CTaskListWnd::v_WndProc
+	if(nOptions[OPT_GROUPING_RIGHTDRAG] == 1)
+	{
+		lpMMThumbnailLongPtr = this_ptr - DO2_3264(0x18, 0x30, 0, 0 /* omitted from public code */);
+
+		LONG_PTR *plp = (LONG_PTR *)*EV_MM_THUMBNAIL_THUMBNAILS_HDPA(lpMMThumbnailLongPtr);
+		if(plp)
+		{
+			int thumbs_count = (int)plp[0];
+
+			int *p_active_index = EV_MM_THUMBNAIL_ACTIVE_THUMB_INDEX(lpMMThumbnailLongPtr);
+			if(*p_active_index >= thumbs_count)
+				*p_active_index = -10;
+
+			int *p_tracked_index = EV_MM_THUMBNAIL_TRACKED_THUMB_INDEX(lpMMThumbnailLongPtr);
+			if(*p_tracked_index >= thumbs_count)
+				*p_tracked_index = -10;
+
+			int *p_pressed_index = EV_MM_THUMBNAIL_PRESSED_THUMB_INDEX(lpMMThumbnailLongPtr);
+			if(*p_pressed_index >= thumbs_count)
+				*p_pressed_index = -10;
+		}
+	}
+
+	hook_proc_call_counter--;
+
+	return lpRet;
+}
+
 static HRESULT __stdcall DoesWindowMatchHook(LONG_PTR *task_group, HWND hCompareWnd, ITEMIDLIST *pCompareItemIdList,
 	WCHAR *pCompareAppId, int *pnMatch, LONG_PTR **p_task_item)
 {
@@ -2884,7 +2983,28 @@ static LONG_PTR __stdcall ButtonGroupHasItemAnimationHook(LONG_PTR *button_group
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR *, int, int, int *))pButtonGroupHasItemAnimation)
 		(button_group, nAnimationInfo, nAnimationType, pnResult);
 
-	if(nAnimationType == 12) // Hot tracking
+	int nAnimationTypeHotTracking;
+	int nAnimationTypeHotTrackOut;
+	int nAnimationTypeActivate;
+	int nAnimationTypeDectivate;
+
+	// CTaskListWnd::_StartPlateAnimations
+	if(nWinVersion >= WIN_VERSION_11_21H2)
+	{
+		nAnimationTypeHotTracking = 14;
+		nAnimationTypeHotTrackOut = 15;
+		nAnimationTypeActivate = 12;
+		nAnimationTypeDectivate = 13;
+	}
+	else
+	{
+		nAnimationTypeHotTracking = 12;
+		nAnimationTypeHotTrackOut = 13;
+		nAnimationTypeActivate = 10;
+		nAnimationTypeDectivate = 11;
+	}
+
+	if(nAnimationType == nAnimationTypeHotTracking)
 	{
 		OnButtonGroupHotTracking(button_group, tracked_button_group != button_group, nAnimationInfo);
 
@@ -2893,7 +3013,7 @@ static LONG_PTR __stdcall ButtonGroupHasItemAnimationHook(LONG_PTR *button_group
 		tracked_button_group = button_group;
 		tracked_button_index = (nAnimationInfo == -2) ? 0 : nAnimationInfo;
 	}
-	else if(nAnimationType == 13) // Hot track out
+	else if(nAnimationType == nAnimationTypeHotTrackOut) // Hot track out
 	{
 		if(tracked_button_group == button_group && tracked_button_index == ((nAnimationInfo == -2) ? 0 : nAnimationInfo))
 		{
@@ -2908,7 +3028,7 @@ static LONG_PTR __stdcall ButtonGroupHasItemAnimationHook(LONG_PTR *button_group
 	}
 	else if(nWinVersion >= WIN_VERSION_10_R1 && nOptions[OPT_COMBINING_DEACTIVE] == 1)
 	{
-		if(nAnimationType == 10) // Activation
+		if(nAnimationType == nAnimationTypeActivate)
 		{
 			LONG_PTR lpMMTaskListLongPtr = button_group[3];
 			ButtonGroupActivated(lpMMTaskListLongPtr, button_group);
@@ -2916,7 +3036,7 @@ static LONG_PTR __stdcall ButtonGroupHasItemAnimationHook(LONG_PTR *button_group
 			active_button_group = button_group;
 			active_button_index = nAnimationInfo;
 		}
-		else if(nAnimationType == 11) // De-activation
+		else if(nAnimationType == nAnimationTypeDectivate)
 		{
 			if(active_button_group == button_group && active_button_index == nAnimationInfo)
 			{
@@ -3106,7 +3226,7 @@ static LONG_PTR __stdcall SecondaryGetUserPreferencesHook(LONG_PTR var1, DWORD *
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, DWORD *))pSecondaryGetUserPreferences)(var1, pdwPreferences);
 
-	*pdwPreferences = ManipulateUserPreferences(*pdwPreferences, _ReturnAddress());
+	*pdwPreferences = ManipulateUserPreferences(*pdwPreferences, _AddressOfReturnAddress());
 
 	hook_proc_call_counter--;
 
@@ -3135,13 +3255,14 @@ static LONG_PTR __stdcall SecondaryIsHorizontalHook(LONG_PTR this_ptr)
 	return lpRet;
 }
 
-static DWORD ManipulateUserPreferences(DWORD dwPreferences, void *pReturnAddress)
+static DWORD ManipulateUserPreferences(DWORD dwPreferences, void **ppAddressOfReturnAddress)
 {
 	DWORD dwNewPreferences = dwPreferences;
 
 	dwNewPreferences |= dwUserPrefSetBits;
 	dwNewPreferences &= ~dwUserPrefRemoveBits;
 
+	void *pReturnAddress = *ppAddressOfReturnAddress;
 	BOOL bCalledFromExplorer =
 		(ULONG_PTR)pReturnAddress >= (ULONG_PTR)ExplorerModuleInfo.lpBaseOfDll &&
 		(ULONG_PTR)pReturnAddress < (ULONG_PTR)ExplorerModuleInfo.lpBaseOfDll + ExplorerModuleInfo.SizeOfImage;
@@ -3828,9 +3949,9 @@ static ULONG __stdcall TaskItemReleaseHook(LONG_PTR this_ptr)
 
 // Hooks
 
-static BOOL CreateEnableHook(void** ppTarget, void* const pDetour, void** ppOriginal, POINTER_REDIRECTION *ppr)
+static BOOL CreateEnableHook(void **ppTarget, void *const pDetour, void **ppOriginal, POINTER_REDIRECTION *ppr)
 {
-	void* pTarget;
+	void *pTarget;
 	MH_STATUS status;
 
 	pTarget = PointerRedirectionGetOriginalPtr(ppTarget);
@@ -3852,7 +3973,7 @@ static BOOL CreateEnableHook(void** ppTarget, void* const pDetour, void** ppOrig
 	return FALSE;
 }
 
-static BOOL DisableHook(void** ppTarget, POINTER_REDIRECTION *ppr)
+static BOOL DisableHook(void **ppTarget, POINTER_REDIRECTION *ppr)
 {
 	/*void* pTarget;
 	MH_STATUS status;*/
@@ -4293,6 +4414,11 @@ void ComFuncResetLastActiveTaskItem()
 BOOL ComFuncIsInGetIdealSpan()
 {
 	return bInGetIdealSpan;
+}
+
+BOOL ComFuncIsInHandleDelayInitStuff()
+{
+	return bInHandleDelayInitStuff;
 }
 
 void ComFuncSetTaskItemGetWindowReturnNull(BOOL bSet)

@@ -127,10 +127,12 @@ DWORD __stdcall Init(INJECT_INIT_STRUCT *p_inject_init_struct)
 			nWinVersion = WIN_VERSION_10_R5;
 		else if(nBuild <= 18362)
 			nWinVersion = WIN_VERSION_10_19H1;
-		else //if(nBuild <= 19041)
+		else if(nBuild <= 19041)
 			nWinVersion = WIN_VERSION_10_20H1;
-		/*else
-			nWinVersion = WIN_VERSION_10_NEXT;*/
+		else
+		{
+			nWinVersion = WIN_VERSION_11_21H2;
+		}
 		break;
 	}
 

@@ -167,7 +167,7 @@ static LRESULT CALLBACK DlgSettingsProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 
 static BOOL GetStartupPath(WCHAR pStartupPath[MAX_PATH])
 {
-	WCHAR szCommandLine[MAX_PATH+2+sizeof(" -hidewnd")-1];
+	WCHAR szCommandLine[MAX_PATH + 2 + sizeof(" -hidewnd") - 1];
 	HKEY hKey;
 	DWORD dwType, dwSize;
 	UINT nStringLength;
@@ -177,14 +177,14 @@ static BOOL GetStartupPath(WCHAR pStartupPath[MAX_PATH])
 		0, KEY_QUERY_VALUE, &hKey);
 	if(error == ERROR_SUCCESS)
 	{
-		dwSize = (MAX_PATH+2+sizeof(" -hidewnd")-1) * sizeof(WCHAR);
+		dwSize = (MAX_PATH + 2 + sizeof(" -hidewnd") - 1) * sizeof(WCHAR);
 
 		error = RegQueryValueEx(hKey, L"7 Taskbar Tweaker", NULL, &dwType, (BYTE *)szCommandLine, &dwSize);
 		if(error == ERROR_SUCCESS)
 		{
 			if(dwType == REG_SZ && dwSize > 0 && (dwSize % sizeof(WCHAR)) == 0)
 			{
-				nStringLength = dwSize/sizeof(WCHAR)-1;
+				nStringLength = dwSize / sizeof(WCHAR) - 1;
 
 				if(szCommandLine[nStringLength] != L'\0' || lstrlen(szCommandLine) != nStringLength)
 					error = ERROR_FILE_NOT_FOUND;
@@ -234,7 +234,7 @@ static BOOL FileNameFromCmdLine(WCHAR *pCmdLine, WCHAR pFileName[MAX_PATH])
 		{
 			*p_out++ = c;
 			count++;
-			if(count > MAX_PATH-1)
+			if(count > MAX_PATH - 1)
 				return FALSE;
 		}
 		else
@@ -250,7 +250,7 @@ static BOOL FileNameFromCmdLine(WCHAR *pCmdLine, WCHAR pFileName[MAX_PATH])
 
 static BOOL SetStartupPath(WCHAR pStartupPath[MAX_PATH])
 {
-	WCHAR szCommandLine[MAX_PATH+2+sizeof(" -hidewnd")-1];
+	WCHAR szCommandLine[MAX_PATH + 2 + sizeof(" -hidewnd") - 1];
 	HKEY hKey;
 	LSTATUS error;
 
@@ -261,10 +261,10 @@ static BOOL SetStartupPath(WCHAR pStartupPath[MAX_PATH])
 		if(pStartupPath)
 		{
 			szCommandLine[0] = L'\"';
-			lstrcpy(szCommandLine+1, pStartupPath);
+			lstrcpy(szCommandLine + 1, pStartupPath);
 			lstrcat(szCommandLine, L"\" -hidewnd");
 
-			error = RegSetValueEx(hKey, L"7 Taskbar Tweaker", 0, REG_SZ, (BYTE *)szCommandLine, (lstrlen(szCommandLine)+1)*sizeof(WCHAR));
+			error = RegSetValueEx(hKey, L"7 Taskbar Tweaker", 0, REG_SZ, (BYTE *)szCommandLine, (lstrlen(szCommandLine) + 1) * sizeof(WCHAR));
 		}
 		else
 		{
@@ -289,7 +289,7 @@ static void LoadResLanguages(HWND hWnd)
 	hComboBoxWnd = GetDlgItem(hWnd, IDC_LANG);
 
 	EnumResourceLanguages(NULL, RT_STRING,
-		MAKEINTRESOURCE(IDS_LANGUAGE/16+1), EnumResLangProc, (LPARAM)hComboBoxWnd);
+		MAKEINTRESOURCE(IDS_LANGUAGE / 16 + 1), EnumResLangProc, (LPARAM)hComboBoxWnd);
 
 	wIDLanguage = MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US);
 
@@ -343,7 +343,7 @@ static LPCWSTR FindStringResourceEx(HINSTANCE hInst, UINT uId, UINT langId)
 
 	pwsz = NULL;
 
-	hrsrc = FindResourceEx(hInst, RT_STRING, MAKEINTRESOURCE(uId/16+1), langId);
+	hrsrc = FindResourceEx(hInst, RT_STRING, MAKEINTRESOURCE(uId / 16 + 1), langId);
 	if(hrsrc)
 	{
 		hglob = LoadResource(hInst, hrsrc);
@@ -353,7 +353,7 @@ static LPCWSTR FindStringResourceEx(HINSTANCE hInst, UINT uId, UINT langId)
 			if(pwsz)
 			{
 				// okay now walk the string table
-				for(i=0; i < (uId & 15); i++)
+				for(i = 0; i < (uId & 15); i++)
 					pwsz += 1 + (UINT)*pwsz;
 			}
 		}

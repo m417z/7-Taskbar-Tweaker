@@ -12,7 +12,7 @@ BOOL LoadOptions(int pOptions[OPTS_COUNT])
 	error = PSOpenSection(L"Options", FALSE, &section);
 	if(error == ERROR_SUCCESS)
 	{
-		for(i=0; i<OPTS_COUNT; i++)
+		for(i = 0; i < OPTS_COUNT; i++)
 		{
 			wsprintf(szConfigurationValue, L"%u", opts_configuration_values[i]);
 
@@ -84,7 +84,7 @@ BOOL SaveOptions(int pOptions[OPTS_COUNT])
 	error = PSOpenSection(L"Options", TRUE, &section);
 	if(error == ERROR_SUCCESS)
 	{
-		for(i=0; i<OPTS_COUNT; i++)
+		for(i = 0; i < OPTS_COUNT; i++)
 		{
 			wsprintf(szConfigurationValue, L"%u", opts_configuration_values[i]);
 

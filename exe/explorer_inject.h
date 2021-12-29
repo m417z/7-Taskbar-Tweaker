@@ -4,7 +4,7 @@
 #include "options_def.h"
 #include "inject_init_struct_def.h"
 
-UINT ExplorerInject(HWND hTweakerWnd, UINT uEjectedMsg, LANGID langid, int pOptions[OPTS_COUNT], WCHAR *pIniFile);
+DWORD ExplorerInject(HWND hTweakerWnd, UINT uEjectedMsg, LANGID langid, int pOptions[OPTS_COUNT], WCHAR *pIniFile);
 BOOL ExplorerIsInjected();
 HWND ExplorerGetTaskbarWnd();
 void ExplorerCleanup();

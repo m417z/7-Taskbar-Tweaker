@@ -1504,7 +1504,7 @@ static HWND *ListGetHwndArraySelected(HWND hListWnd, UINT *puSelectedWndCount)
 	if(uSelectedWndCount == 0)
 		return NULL;
 
-	phWndArray = (HWND *)HeapAlloc(GetProcessHeap(), 0, uSelectedWndCount*sizeof(HWND));
+	phWndArray = (HWND *)HeapAlloc(GetProcessHeap(), 0, uSelectedWndCount * sizeof(HWND));
 	if(!phWndArray)
 		return NULL;
 
@@ -1560,7 +1560,7 @@ static BOOL ListCopySelectedToClipboard(HWND hListWnd)
 	if(uSelectedCount == 0)
 		return FALSE;
 
-	hText = GlobalAlloc(GMEM_MOVEABLE, (uSelectedCount*(1 + (MAX_PATH - 1) + 2) + 1)*sizeof(WCHAR)); // count*(tab+max_len+newline)+null_term
+	hText = GlobalAlloc(GMEM_MOVEABLE, (uSelectedCount * (1 + (MAX_PATH - 1) + 2) + 1) * sizeof(WCHAR)); // count*(tab+max_len+newline)+null_term
 	if(!hText)
 		return FALSE;
 
@@ -1625,7 +1625,7 @@ static BOOL ListCopySelectedToClipboard(HWND hListWnd)
 
 	GlobalUnlock(hText);
 
-	hRealloc = GlobalReAlloc(hText, (nTextSize + 1)*sizeof(WCHAR), 0);
+	hRealloc = GlobalReAlloc(hText, (nTextSize + 1) * sizeof(WCHAR), 0);
 	if(!hRealloc)
 	{
 		GlobalFree(hText);
@@ -2001,9 +2001,11 @@ static void DPA_InsertPtrHook_Group(DPA_HOOK_PARAM *p_dpa_hook_param)
 			}
 		}
 
-		do {
+		do
+		{
 			lvi.iItem++;
-		} while(ListView_GetItem(hListWnd, &lvi) && lvi.iIndent == 1);
+		}
+		while(ListView_GetItem(hListWnd, &lvi) && lvi.iIndent == 1);
 	}
 	else
 		lvi.iItem = 0;

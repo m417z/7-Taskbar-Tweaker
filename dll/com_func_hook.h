@@ -28,5 +28,6 @@ void ComFuncSwitchToHookDisable();
 LONG_PTR *ComFuncGetLastActiveTaskItem();
 void ComFuncResetLastActiveTaskItem();
 BOOL ComFuncIsInGetIdealSpan();
+BOOL ComFuncIsInHandleDelayInitStuff();
 void ComFuncSetTaskItemGetWindowReturnNull(BOOL bSet);
 LONG_PTR ComFuncGetSavedTaskItemGetWindow();

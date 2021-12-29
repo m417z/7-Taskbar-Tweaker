@@ -9,6 +9,7 @@
 
 static DWORD WINAPI MouseHookThread(void *pParameter);
 static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam);
+static BOOL CaptureMouseWheel(const MSLLHOOKSTRUCT *msllHookStruct);
 
 // superglobals
 extern HINSTANCE hDllInst;
@@ -116,137 +117,18 @@ static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lPara
 	if(nCode == HC_ACTION)
 	{
 		MSLLHOOKSTRUCT *msllHookStruct = (MSLLHOOKSTRUCT *)lParam;
-		BOOL bDontCapture = FALSE;
 
-		if(wTaskSwitcherClass)
+		if(wParam == WM_MOUSEWHEEL)
 		{
-			HWND hForegroundWnd = GetForegroundWindow();
-			if(hForegroundWnd)
+			if(CaptureMouseWheel(msllHookStruct))
 			{
-				ATOM wClassAtom = (ATOM)GetClassLong(hForegroundWnd, GCW_ATOM);
-				if(wClassAtom && wClassAtom == wTaskSwitcherClass)
-				{
-					bDontCapture = TRUE;
-				}
-			}
-		}
-
-		if(!bDontCapture && wParam == WM_MOUSEWHEEL)
-		{
-			HWND hMaybeTransWnd = WindowFromPoint(msllHookStruct->pt);
-			DWORD dwThreadId, dwProcessId;
-			dwThreadId = GetWindowThreadProcessId(hMaybeTransWnd, &dwProcessId);
-
-			if(dwProcessId == GetCurrentProcessId() && dwThreadId == dwTaskbarThreadId)
-			{
-				// We send MSG_DLL_MOUSE_HOOK_WND_IDENT here, because we want to run WindowFromPoint on the
-				// original thread, which in turn will skip transparent windows, by sending WM_NCHITTEST.
-				// Reference: http://blogs.msdn.com/b/oldnewthing/archive/2010/12/30/10110077.aspx
-				// Also, we call IdentifyTaskbarWindow from the original thread.
-
-				MOUSE_HOOK_WND_IDENT_PARAM identParam;
-				identParam.ppt = &msllHookStruct->pt;
-				identParam.hMaybeTransWnd = hMaybeTransWnd;
-
-				DWORD_PTR dwMsgResult;
-				LRESULT lSendMessageResult = SendMessageTimeout(hTaskbarWnd, uTweakerMsg,
-					(WPARAM)&identParam, MSG_DLL_MOUSE_HOOK_WND_IDENT, SMTO_ABORTIFHUNG, 500, &dwMsgResult);
-
-				HWND hNonTransWnd = NULL;
-				int nMaybeTransWndIdent = TASKBAR_WINDOW_UNKNOWN;
-
-				if(lSendMessageResult && dwMsgResult)
-				{
-					dwThreadId = GetWindowThreadProcessId(identParam.hNonTransWnd, &dwProcessId);
-					if(dwProcessId == GetCurrentProcessId() && dwThreadId == dwTaskbarThreadId)
-					{
-						hNonTransWnd = identParam.hNonTransWnd;
-						nMaybeTransWndIdent = identParam.nMaybeTransWndIdent;
-					}
-				}
-
-				BOOL bCaptureWheel = FALSE;
-				if(hNonTransWnd)
-				{
-					switch(nMaybeTransWndIdent)
-					{
-					case TASKBAR_WINDOW_THUMBNAIL:
-					case TASKBAR_SECONDARY_THUMBNAIL:
-						if(nOptions[OPT_WHEEL_MINTHUMB] == 1)
-							bCaptureWheel = TRUE;
-						break;
-
-					case TASKBAR_WINDOW_TASKLIST:
-					case TASKBAR_SECONDARY_TASKLIST:
-						if(nOptions[OPT_WHEEL_CYCLE] == 1 || nOptions[OPT_WHEEL_MINTASKBAR] == 1 ||
-							nOptions[OPT_WHEEL_VOLTASKBAR] == 1 || nOptionsEx[OPT_EX_MULTIPAGE_WHEEL_SCROLL])
-							bCaptureWheel = TRUE;
-						break;
-
-					case TASKBAR_WINDOW_TASKSW:
-						if(nOptions[OPT_WHEEL_VOLTASKBAR] == 1 || nOptionsEx[OPT_EX_MULTIPAGE_WHEEL_SCROLL])
-							bCaptureWheel = TRUE;
-						break;
-
-					case TASKBAR_WINDOW_TASKBAND:
-						if(nOptions[OPT_WHEEL_VOLTASKBAR] == 1)
-							bCaptureWheel = TRUE;
-						break;
-
-					case TASKBAR_SECONDARY_TASKBAND:
-						if(nOptions[OPT_WHEEL_VOLTASKBAR] == 1 || nOptionsEx[OPT_EX_MULTIPAGE_WHEEL_SCROLL])
-							bCaptureWheel = TRUE;
-						break;
-
-					case TASKBAR_WINDOW_NOTIFY:
-						if(nOptions[OPT_WHEEL_VOLNOTIFY] == 1 || nOptions[OPT_WHEEL_VOLTASKBAR] == 1)
-							bCaptureWheel = TRUE;
-						break;
-
-					case TASKBAR_WINDOW_TASKBAR:
-					case TASKBAR_SECONDARY_TASKBAR:
-						if(nOptions[OPT_WHEEL_VOLTASKBAR] == 1)
-							bCaptureWheel = TRUE;
-						break;
-					}
-				}
-
-				if(bCaptureWheel)
-				{
-					WORD wVirtualKeys = 0;
-
-					if(GetKeyState(VK_LBUTTON) < 0)
-						wVirtualKeys |= MK_LBUTTON;
-
-					if(GetKeyState(VK_RBUTTON) < 0)
-						wVirtualKeys |= MK_RBUTTON;
-
-					if(GetKeyState(VK_SHIFT) < 0)
-						wVirtualKeys |= MK_SHIFT;
-
-					if(GetKeyState(VK_CONTROL) < 0)
-						wVirtualKeys |= MK_CONTROL;
-
-					if(GetKeyState(VK_MBUTTON) < 0)
-						wVirtualKeys |= MK_MBUTTON;
-
-					if(GetKeyState(VK_XBUTTON1) < 0)
-						wVirtualKeys |= MK_XBUTTON1;
-
-					if(GetKeyState(VK_XBUTTON2) < 0)
-						wVirtualKeys |= MK_XBUTTON2;
-
-					PostMessage(hNonTransWnd, WM_MOUSEWHEEL,
-						MAKEWPARAM(wVirtualKeys, HIWORD(msllHookStruct->mouseData)),
-						MAKELPARAM(msllHookStruct->pt.x, msllHookStruct->pt.y));
-
-					return 1;
-				}
+				return 1;
 			}
 		}
 
 		if(nOptions[OPT_WHEEL_VOLTASKBAR] == 1 || nOptions[OPT_WHEEL_VOLNOTIFY] == 1)
 		{
+			// Pass events for classic sndvol handling.
 			if(IsSndVolOpen())
 			{
 				switch(wParam)
@@ -271,4 +153,137 @@ static LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lPara
 	}
 
 	return CallNextHookEx(hLowLevelMouseHook, nCode, wParam, lParam);
+}
+
+static BOOL CaptureMouseWheel(const MSLLHOOKSTRUCT *msllHookStruct)
+{
+	if(wTaskSwitcherClass)
+	{
+		HWND hForegroundWnd = GetForegroundWindow();
+		if(hForegroundWnd)
+		{
+			ATOM wClassAtom = (ATOM)GetClassLong(hForegroundWnd, GCW_ATOM);
+			if(wClassAtom && wClassAtom == wTaskSwitcherClass)
+			{
+				return FALSE;
+			}
+		}
+	}
+
+	HWND hMaybeTransWnd = WindowFromPoint(msllHookStruct->pt);
+	DWORD dwThreadId, dwProcessId;
+	dwThreadId = GetWindowThreadProcessId(hMaybeTransWnd, &dwProcessId);
+
+	if(dwProcessId != GetCurrentProcessId() || dwThreadId != dwTaskbarThreadId)
+	{
+		return FALSE;
+	}
+
+	// We send MSG_DLL_MOUSE_HOOK_WND_IDENT here, because we want to run WindowFromPoint on the
+	// original thread, which in turn will skip transparent windows, by sending WM_NCHITTEST.
+	// Reference: http://blogs.msdn.com/b/oldnewthing/archive/2010/12/30/10110077.aspx
+	// Also, we call IdentifyTaskbarWindow from the original thread.
+
+	MOUSE_HOOK_WND_IDENT_PARAM identParam;
+	identParam.ppt = &msllHookStruct->pt;
+	identParam.hMaybeTransWnd = hMaybeTransWnd;
+
+	DWORD_PTR dwMsgResult;
+	LRESULT lSendMessageResult = SendMessageTimeout(hTaskbarWnd, uTweakerMsg,
+		(WPARAM)&identParam, MSG_DLL_MOUSE_HOOK_WND_IDENT, SMTO_ABORTIFHUNG, 500, &dwMsgResult);
+
+	HWND hNonTransWnd = NULL;
+	int nMaybeTransWndIdent = TASKBAR_WINDOW_UNKNOWN;
+
+	if(lSendMessageResult && dwMsgResult)
+	{
+		dwThreadId = GetWindowThreadProcessId(identParam.hNonTransWnd, &dwProcessId);
+		if(dwProcessId == GetCurrentProcessId() && dwThreadId == dwTaskbarThreadId)
+		{
+			hNonTransWnd = identParam.hNonTransWnd;
+			nMaybeTransWndIdent = identParam.nMaybeTransWndIdent;
+		}
+	}
+
+	if(!hNonTransWnd)
+	{
+		return FALSE;
+	}
+
+	BOOL bCaptureWheel = FALSE;
+	switch(nMaybeTransWndIdent)
+	{
+	case TASKBAR_WINDOW_THUMBNAIL:
+	case TASKBAR_SECONDARY_THUMBNAIL:
+		if(nOptions[OPT_WHEEL_MINTHUMB] == 1)
+			bCaptureWheel = TRUE;
+		break;
+
+	case TASKBAR_WINDOW_TASKLIST:
+	case TASKBAR_SECONDARY_TASKLIST:
+		if(nOptions[OPT_WHEEL_CYCLE] == 1 || nOptions[OPT_WHEEL_MINTASKBAR] == 1 ||
+			nOptions[OPT_WHEEL_VOLTASKBAR] == 1 || nOptionsEx[OPT_EX_MULTIPAGE_WHEEL_SCROLL])
+			bCaptureWheel = TRUE;
+		break;
+
+	case TASKBAR_WINDOW_TASKSW:
+		if(nOptions[OPT_WHEEL_VOLTASKBAR] == 1 || nOptionsEx[OPT_EX_MULTIPAGE_WHEEL_SCROLL])
+			bCaptureWheel = TRUE;
+		break;
+
+	case TASKBAR_WINDOW_TASKBAND:
+		if(nOptions[OPT_WHEEL_VOLTASKBAR] == 1)
+			bCaptureWheel = TRUE;
+		break;
+
+	case TASKBAR_SECONDARY_TASKBAND:
+		if(nOptions[OPT_WHEEL_VOLTASKBAR] == 1 || nOptionsEx[OPT_EX_MULTIPAGE_WHEEL_SCROLL])
+			bCaptureWheel = TRUE;
+		break;
+
+	case TASKBAR_WINDOW_NOTIFY:
+		if(nOptions[OPT_WHEEL_VOLNOTIFY] == 1 || nOptions[OPT_WHEEL_VOLTASKBAR] == 1)
+			bCaptureWheel = TRUE;
+		break;
+
+	case TASKBAR_WINDOW_TASKBAR:
+	case TASKBAR_SECONDARY_TASKBAR:
+		if(nOptions[OPT_WHEEL_VOLTASKBAR] == 1)
+			bCaptureWheel = TRUE;
+		break;
+	}
+
+	if(!bCaptureWheel)
+	{
+		return FALSE;
+	}
+
+	WORD wVirtualKeys = 0;
+
+	if(GetKeyState(VK_LBUTTON) < 0)
+		wVirtualKeys |= MK_LBUTTON;
+
+	if(GetKeyState(VK_RBUTTON) < 0)
+		wVirtualKeys |= MK_RBUTTON;
+
+	if(GetKeyState(VK_SHIFT) < 0)
+		wVirtualKeys |= MK_SHIFT;
+
+	if(GetKeyState(VK_CONTROL) < 0)
+		wVirtualKeys |= MK_CONTROL;
+
+	if(GetKeyState(VK_MBUTTON) < 0)
+		wVirtualKeys |= MK_MBUTTON;
+
+	if(GetKeyState(VK_XBUTTON1) < 0)
+		wVirtualKeys |= MK_XBUTTON1;
+
+	if(GetKeyState(VK_XBUTTON2) < 0)
+		wVirtualKeys |= MK_XBUTTON2;
+
+	PostMessage(hNonTransWnd, WM_MOUSEWHEEL,
+		MAKEWPARAM(wVirtualKeys, HIWORD(msllHookStruct->mouseData)),
+		MAKELPARAM(msllHookStruct->pt.x, msllHookStruct->pt.y));
+
+	return TRUE;
 }

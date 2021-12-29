@@ -19,7 +19,7 @@ LONG_PTR *EV_TASKBAR_START_BTN_LONG_PTR(void);
 LONG_PTR *EV_TASKBAR_BACK_LONG_PTR(void);
 LONG_PTR *EV_TASKBAR_SEARCH_LONG_PTR(void);
 LONG_PTR *EV_TASKBAR_CORTANA_LONG_PTR(void);
-HWND **EV_TASKBAR_EXTRA_BTN_HWNDS(void);
+LONG_PTR *EV_TASKBAR_TRAY_SEARCH_CONTROL(void);
 LONG_PTR *EV_TASKBAR_MULTITASKING_LONG_PTR(void);
 void *EV_TASKBAR_W7_START_BTN_CLASS(void);
 int *EV_TASKBAR_W7_WIDTH_PADDING(void);
@@ -68,8 +68,8 @@ HWND *EV_MM_TASKLIST_TOOLTIP_WND(LONG_PTR lp);
 BOOL *EV_MM_TASKLIST_THUMB_DISABLING_FLAG(LONG_PTR lp);
 LONG_PTR **EV_MM_TASKLIST_TRACKED_BUTTON_GROUP(LONG_PTR lp);
 int *EV_MM_TASKLIST_TRACKED_BUTTON_INDEX(LONG_PTR lp);
-LONG_PTR **EV_MM_TASKLIST_ACVITE_BUTTON_GROUP(LONG_PTR lp);
-int *EV_MM_TASKLIST_ACVITE_BUTTON_INDEX(LONG_PTR lp);
+LONG_PTR **EV_MM_TASKLIST_ACTIVE_BUTTON_GROUP(LONG_PTR lp);
+int *EV_MM_TASKLIST_ACTIVE_BUTTON_INDEX(LONG_PTR lp);
 LONG_PTR **EV_MM_TASKLIST_PRESSED_BUTTON_GROUP(LONG_PTR lp);
 LONG_PTR **EV_MM_TASKLIST_THUMB_BUTTON_GROUP(LONG_PTR lp);
 LONG_PTR *EV_MM_TASKLIST_MM_THUMBNAIL_LONG_PTR(LONG_PTR lp);
@@ -110,6 +110,11 @@ int *EV_MM_THUMBNAIL_LIST_FIRST_VISIBLE_INDEX(LONG_PTR lp);
 HWND *EV_START_BUTTON_HWND(LONG_PTR lp);
 
 //////////////////////////////////////////////////////////////////////////
+// CTraySearchControl
+
+HWND *EV_TRAY_SEARCH_CONTROL_BUTTON_HWND(LONG_PTR lp);
+
+//////////////////////////////////////////////////////////////////////////
 // CTrayButton
 
 HWND *EV_TRAY_BUTTON_HWND(LONG_PTR lp);
@@ -123,8 +128,10 @@ HWND *EV_TRAY_NOTIFY_SHOW_DESKTOP_WND(LONG_PTR lp);
 HWND *EV_TRAY_NOTIFY_OVERFLOW_TOOLBAR_WND(LONG_PTR lp);
 HWND *EV_TRAY_NOTIFY_TEMPORARY_TOOLBAR_WND(LONG_PTR lp);
 HWND *EV_TRAY_NOTIFY_TOOLBAR_WND(LONG_PTR lp);
-BYTE* EV_TRAY_NOTIFY_PTRDEV_SUPPORTED(LONG_PTR lp);
-BYTE* EV_TRAY_NOTIFY_PTRDEV_SUPPORTED_VALID(LONG_PTR lp);
+BOOL *EV_TRAY_NOTIFY_CHEVRON_STATE(LONG_PTR lp);
+BYTE *EV_TRAY_NOTIFY_PTRDEV_SUPPORTED(LONG_PTR lp);
+BYTE *EV_TRAY_NOTIFY_PTRDEV_SUPPORTED_VALID(LONG_PTR lp);
+HTHEME *EV_TRAY_NOTIFY_THEME(LONG_PTR lp);
 DWORD *EV_TRAY_NOTIFY_DRAG_FLAG(LONG_PTR lp);
 
 //////////////////////////////////////////////////////////////////////////
@@ -184,6 +191,11 @@ size_t *EV_APP_VIEW_MGR_APP_ARRAY_SIZE(LONG_PTR lp);
 
 // CTaskBand::CurrentVirtualDesktopChangedAnimated
 #define FUNC_CTaskBand_CurrentVirtualDesktopChangedAnimated(plp)     (plp[3])
+
+////////////////////
+
+// CTaskBand::Exec
+#define FUNC_CTaskBand_Exec(plp)                                     (plp[4])
 
 ////////////////////
 
@@ -292,6 +304,11 @@ size_t *EV_APP_VIEW_MGR_APP_ARRAY_SIZE(LONG_PTR lp);
 // Until Windows 10
 // CTaskListThumbnailWnd::ThumbIndexFromPoint(this, ppt)
 #define FUNC_CTaskListThumbnailWnd_ThumbIndexFromPoint(plp)          ((int(__stdcall *)(LONG_PTR, POINT *))plp[DO2(13, 0 /* omitted from public code */)])
+
+////////////////////
+
+// CTaskListThumbnailWnd::DestroyThumbnail
+#define FUNC_CTaskListThumbnailWnd_DestroyThumbnail(plp)             (plp[5])
 
 ////////////////////
 

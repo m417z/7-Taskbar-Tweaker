@@ -994,49 +994,17 @@ static BOOL ShowHelpSection(HWND hWnd, WCHAR *pszHelpSection)
 
 static BOOL ShowHelpSectionOfLang(HWND hWnd, WCHAR *pszHelpSection, LANGID langid)
 {
-	WCHAR szLocaleName[LOCALE_NAME_MAX_LENGTH];
-	int nLocaleNameLen;
-	WCHAR szCommandLine[MAX_PATH*2];
-	int nCommandLineLen;
-	WCHAR *pszFilePath;
-	int nFilePathLen;
-	DWORD dwFileAttributes;
-
-	nLocaleNameLen = LCIDToLocaleName(MAKELCID(langid, SORT_DEFAULT), szLocaleName, LOCALE_NAME_MAX_LENGTH, 0);
-	if(nLocaleNameLen == 0)
-		return FALSE;
+	WCHAR szCommandLine[MAX_PATH * 2];
 
 	szCommandLine[0] = L'"';
-	pszFilePath = szCommandLine + 1;
-
-	lstrcpy(pszFilePath, szLauncherPath);
-	nFilePathLen = lstrlen(pszFilePath);
-
-	do
-	{
-		nFilePathLen--;
-
-		if(nFilePathLen < 0)
-			return FALSE;
-	}
-	while(pszFilePath[nFilePathLen] != L'\\');
-
-	nFilePathLen++;
-	pszFilePath[nFilePathLen] = L'\0';
-
-	nFilePathLen += (sizeof("help\\") - 1) + nLocaleNameLen + (sizeof(".chm") - 1);
-	if(nFilePathLen > MAX_PATH - 1)
+	if(!GetHelpFilePath(langid, szLauncherPath, szCommandLine + 1))
 		return FALSE;
 
-	lstrcat(pszFilePath, L"help\\");
-	lstrcat(pszFilePath, szLocaleName);
-	lstrcat(pszFilePath, L".chm");
-
-	dwFileAttributes = GetFileAttributes(pszFilePath);
+	DWORD dwFileAttributes = GetFileAttributes(szCommandLine + 1);
 	if(dwFileAttributes == INVALID_FILE_ATTRIBUTES || (dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
 		return FALSE;
 
-	nCommandLineLen = 1 + nFilePathLen + (sizeof("::/") - 1) + lstrlen(pszHelpSection) + (sizeof(".htm\"") - 1);
+	int nCommandLineLen = lstrlen(szCommandLine) + (sizeof("::/") - 1) + lstrlen(pszHelpSection) + (sizeof(".htm\"") - 1);
 	if(nCommandLineLen > MAX_PATH * 2 - 1)
 		return FALSE;
 
@@ -1091,7 +1059,7 @@ static void TrimText(WCHAR *pszText)
 	if(nTrimmedLen != nStringLen)
 	{
 		if(pStart != pszText)
-			MoveMemory(pszText, pStart, nTrimmedLen*sizeof(WCHAR));
+			MoveMemory(pszText, pStart, nTrimmedLen * sizeof(WCHAR));
 
 		pszText[nTrimmedLen] = L'\0';
 	}
@@ -1148,7 +1116,7 @@ static BOOL EditListViewData(HWND hListViewWnd, int nItemIndex)
 		return FALSE;
 	}
 
-	SendMessage(hEditCtrlWnd, EM_SETLIMITTEXT, sizeof("4294967295")-1, 0);
+	SendMessage(hEditCtrlWnd, EM_SETLIMITTEXT, sizeof("4294967295") - 1, 0);
 
 	SetFocus(hEditCtrlWnd);
 	SendMessage(hEditCtrlWnd, EM_SETSEL, 0, -1);

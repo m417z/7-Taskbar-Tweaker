@@ -97,9 +97,11 @@ BOOL LoadAppidLists(void)
 
 		if(error != ERROR_SUCCESS)
 		{
-			do {
+			do
+			{
 				ListFree(&appid_lists[i]);
-			} while(i--);
+			}
+			while(i--);
 
 			return FALSE;
 		}
@@ -220,7 +222,7 @@ static BOOL ListAdd(APPID_LIST **ppList, WCHAR *pStr, int nValue)
 	{
 		len = lstrlen(pStr);
 
-		pListItem = (APPID_LIST *)HeapAlloc(GetProcessHeap(), 0, sizeof(APPID_LIST) + (len + 1)*sizeof(WCHAR));
+		pListItem = (APPID_LIST *)HeapAlloc(GetProcessHeap(), 0, sizeof(APPID_LIST) + (len + 1) * sizeof(WCHAR));
 		if(!pListItem)
 			return FALSE;
 
@@ -228,7 +230,7 @@ static BOOL ListAdd(APPID_LIST **ppList, WCHAR *pStr, int nValue)
 		pListItem->nValue = nValue;
 
 		//HASH_ADD_TSTR(*ppList, szKey, pListItem);
-		HASH_ADD(hh, *ppList, szKey, len*sizeof(WCHAR), pListItem); // we already know the length
+		HASH_ADD(hh, *ppList, szKey, len * sizeof(WCHAR), pListItem); // we already know the length
 	}
 	else
 		pListItem->nValue = nValue;

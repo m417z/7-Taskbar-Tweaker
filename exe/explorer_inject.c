@@ -5,9 +5,6 @@
 #include "version.h"
 #include "library_load_errors.h"
 #include "functions.h"
-#include "resource.h"
-
-#define RSRC_STRING_W_PARAM(string_id, extra_param) ((DWORD)(((DWORD)(((DWORD_PTR)(string_id)) & 0x000FFFFF)) | ((DWORD)((DWORD)(((DWORD_PTR)(extra_param)) & 0x00000FFF))) << 4*5))
 
 static volatile BOOL bInjected = FALSE;
 static HWND g_hTweakerWnd;
@@ -24,30 +21,22 @@ static DWORD WINAPI WaitThread(LPVOID lpParameter);
 static BOOL MyReadProcessMemory(HANDLE hProcess, LPCVOID lpBaseAddress, LPVOID lpBuffer, SIZE_T nSize);
 static BOOL MyWriteProcessMemory(HANDLE hProcess, LPVOID lpBaseAddress, LPVOID lpBuffer, SIZE_T nSize);
 
-UINT ExplorerInject(HWND hTweakerWnd, UINT uEjectedMsg, LANGID langid, int pOptions[OPTS_COUNT], WCHAR *pIniFile)
+DWORD ExplorerInject(HWND hTweakerWnd, UINT uEjectedMsg, LANGID langid, int pOptions[OPTS_COUNT], WCHAR *pIniFile)
 {
-	WCHAR szDllPath[MAX_PATH];
-	HANDLE hExplorerIsShellMutex;
-	DWORD dwProcessId;
-	HANDLE hRemoteEvent, hRemoteCurrentProcess;
-	INJECT_INIT_STRUCT inject_init_struct;
-	DWORD dwError;
-	UINT uError;
-	int i;
-
 	g_hTweakerWnd = hTweakerWnd;
 	g_uEjectedMsg = uEjectedMsg;
 
 	// Get DLL path
-	i = GetModuleFileName(NULL, szDllPath, MAX_PATH);
+	WCHAR szDllPath[MAX_PATH];
+	int i = GetModuleFileName(NULL, szDllPath, MAX_PATH);
 	while(i-- && szDllPath[i] != L'\\');
 	lstrcpy(&szDllPath[i+1], L"inject.dll");
 
 	if(GetFileAttributes(szDllPath) == INVALID_FILE_ATTRIBUTES)
-		return IDS_INJERROR_NODLL;
+		return EXE_ERR_NO_DLL;
 
 	// Wait until explorer shell is created
-	hExplorerIsShellMutex = OpenMutex(SYNCHRONIZE, FALSE, L"Local\\ExplorerIsShellMutex");
+	HANDLE hExplorerIsShellMutex = OpenMutex(SYNCHRONIZE, FALSE, L"Local\\ExplorerIsShellMutex");
 	if(hExplorerIsShellMutex)
 	{
 		switch(WaitForSingleObject(hExplorerIsShellMutex, INFINITE))
@@ -64,8 +53,24 @@ UINT ExplorerInject(HWND hTweakerWnd, UINT uEjectedMsg, LANGID langid, int pOpti
 	// Find and open explorer process
 	hTaskbarWnd = FindWindow(L"Shell_TrayWnd", NULL);
 	if(!hTaskbarWnd)
-		return IDS_INJERROR_NOTBAR;
+		return EXE_ERR_NO_TASKBAR;
 
+	HWND hTaskSwWnd = (HWND)GetProp(hTaskbarWnd, L"TaskbandHWND");
+	if(!hTaskSwWnd)
+		return EXE_ERR_NO_TASKLIST;
+
+	HWND hTaskListWnd = FindWindowEx(hTaskSwWnd, NULL, L"MSTaskListWClass", NULL);
+	if(!hTaskListWnd)
+		return EXE_ERR_NO_TASKLIST;
+
+	if(!IsWindowVisible(hTaskListWnd))
+	{
+		// The classic task list exists, but is not visible in the new Windows 11 taskbar.
+		// The new taskbar is not supported, so return an error.
+		return EXE_ERR_HIDDEN_TASKLIST;
+	}
+
+	DWORD dwProcessId;
 	GetWindowThreadProcessId(hTaskbarWnd, &dwProcessId);
 
 	hExplorerProcess = OpenProcess(
@@ -73,7 +78,7 @@ UINT ExplorerInject(HWND hTweakerWnd, UINT uEjectedMsg, LANGID langid, int pOpti
 		PROCESS_DUP_HANDLE|PROCESS_QUERY_INFORMATION|SYNCHRONIZE, FALSE, dwProcessId
 	);
 	if(!hExplorerProcess)
-		return IDS_INJERROR_EXPROC;
+		return EXE_ERR_OPEN_PROCESS;
 
 	// Wait for explorer to initialize in case it didn't
 	WaitForInputIdle(hExplorerProcess, INFINITE);
@@ -82,10 +87,12 @@ UINT ExplorerInject(HWND hTweakerWnd, UINT uEjectedMsg, LANGID langid, int pOpti
 	hCleanEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
 	// Duplicate some handles
+	HANDLE hRemoteEvent, hRemoteCurrentProcess;
 	DuplicateHandle(GetCurrentProcess(), hCleanEvent, hExplorerProcess, &hRemoteEvent, EVENT_MODIFY_STATE|SYNCHRONIZE, FALSE, 0);
 	DuplicateHandle(GetCurrentProcess(), GetCurrentProcess(), hExplorerProcess, &hRemoteCurrentProcess, PROCESS_DUP_HANDLE|SYNCHRONIZE, FALSE, 0);
 
 	// Fill the inject struct
+	INJECT_INIT_STRUCT inject_init_struct;
 	inject_init_struct.dwVersion = VER_FILE_VERSION_LONG;
 	inject_init_struct.hTweakerWnd = hTweakerWnd;
 	inject_init_struct.lang = langid;
@@ -99,7 +106,7 @@ UINT ExplorerInject(HWND hTweakerWnd, UINT uEjectedMsg, LANGID langid, int pOpti
 		*inject_init_struct.szIniFile = L'\0';
 
 	// The real thing, load the dll in explorer
-	dwError = LoadLibraryInExplorer(hExplorerProcess, szDllPath, &inject_init_struct, &hRemoteWaitThread);
+	DWORD dwError = LoadLibraryInExplorer(hExplorerProcess, szDllPath, &inject_init_struct, &hRemoteWaitThread);
 	if(dwError == 0)
 	{
 		// Create our thread that will clean stuff up
@@ -111,23 +118,21 @@ UINT ExplorerInject(HWND hTweakerWnd, UINT uEjectedMsg, LANGID langid, int pOpti
 
 			return 0;
 		}
-		else
-			uError = IDS_INJERROR_X3;
+
+		dwError = EXE_ERR_OTHER_ERROR;
 
 		SetEvent(hCleanEvent);
 
 		WaitForSingleObject(hRemoteWaitThread, INFINITE);
 		CloseHandle(hRemoteWaitThread);
 	}
-	else
-		uError = RSRC_STRING_W_PARAM(IDS_INJERROR_LOADDLL, dwError);
 
 	CloseHandle(hCleanEvent);
 	DuplicateHandle(hExplorerProcess, hRemoteEvent, NULL, NULL, 0, FALSE, DUPLICATE_CLOSE_SOURCE);
 	DuplicateHandle(hExplorerProcess, hRemoteCurrentProcess, NULL, NULL, 0, FALSE, DUPLICATE_CLOSE_SOURCE);
 	CloseHandle(hExplorerProcess);
 
-	return uError;
+	return dwError;
 }
 
 static DWORD LoadLibraryInExplorer(HANDLE hProcess, WCHAR *pDllName,

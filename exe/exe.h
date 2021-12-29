@@ -40,7 +40,9 @@ typedef struct _dlg_param {
 	int nInitErrorsCount;
 
 	// Injection error
-	UINT uInjectionErrorID;
+	UINT uInjectionAttempts;
+	DWORD dwInjectionError;
+	DWORD dwWantedToShowUpdateDialogTickCount;
 
 	// Settings
 	BOOL bHideWnd;
@@ -94,8 +96,9 @@ HMENU MakeTrayRightClickMenu(BOOL bUpdateAvailable);
 BOOL ShowHelp(HWND hWnd);
 BOOL ShowHelpOfLang(HWND hWnd, LANGID langid);
 void AboutMsgBox(HWND hWnd);
-void InjectionErrorMsgBox(HWND hWnd, UINT uErrorID);
-HRESULT CALLBACK AboutMsgTaskDialogCallbackProc(HWND hWnd, UINT uNotification, WPARAM wParam, LPARAM lParam, LONG_PTR dwRefData);
+void InjectionErrorMsgBox(HWND hWnd, DWORD dwError);
+void Windows11UnsupportedMsgBox(HWND hWnd);
+HRESULT CALLBACK TaskDialogWithLinksCallbackProc(HWND hWnd, UINT uNotification, WPARAM wParam, LPARAM lParam, LONG_PTR dwRefData);
 BOOL ApplyLanguage(LANGID new_language_id);
 LRESULT SendOptionsMessage(HWND hWnd, HWND hSenderWnd, int pOptions[OPTS_COUNT]);
 LRESULT SendInspectorMessage(HWND hWnd, UINT uTweakerMsg);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "version.h"
+
 extern int nWinVersion;
 extern WORD nExplorerBuild, nExplorerQFE;
 
@@ -8,16 +10,16 @@ extern WORD nExplorerBuild, nExplorerQFE;
 #define WIN_VERSION_8              1
 #define WIN_VERSION_81             2
 #define WIN_VERSION_811            3
-#define WIN_VERSION_10_T1          4  // 1507 (Initial Release)
-#define WIN_VERSION_10_T2          5  // 1511 (November Update)
-#define WIN_VERSION_10_R1          6  // 1607 (Anniversary Update)
-#define WIN_VERSION_10_R2          7  // 1703 (Creators Update)
-#define WIN_VERSION_10_R3          8  // 1709 (Fall Creators Update)
-#define WIN_VERSION_10_R4          9  // 1803 (April 2018 Update)
-#define WIN_VERSION_10_R5          10 // 1809 (October 2018 Update)
-#define WIN_VERSION_10_19H1        11 // 1903 (May 2019 Update) and 1909 (November 2019 Update)
-#define WIN_VERSION_10_20H1        12 // 2004 (Summer 2020 Update) and 20H2 (October 2020 Update)
-//#define WIN_VERSION_10_NEXT        13
+#define WIN_VERSION_10_T1          4  // 1507
+#define WIN_VERSION_10_T2          5  // 1511
+#define WIN_VERSION_10_R1          6  // 1607
+#define WIN_VERSION_10_R2          7  // 1703
+#define WIN_VERSION_10_R3          8  // 1709
+#define WIN_VERSION_10_R4          9  // 1803
+#define WIN_VERSION_10_R5          10 // 1809
+#define WIN_VERSION_10_19H1        11 // 1903, 1909
+#define WIN_VERSION_10_20H1        12 // 2004, 20H2, 21H1, 21H2
+#define WIN_VERSION_11_21H2        13
 
 // helper macros
 #define FIRST_NONEMPTY_ARG_2(a, b) \
@@ -46,6 +48,8 @@ extern WORD nExplorerBuild, nExplorerQFE;
                                    FIRST_NONEMPTY_ARG_2(a, FIRST_NONEMPTY_ARG_12(b, c, d, e, f, g, h, i, j, k, l, m))
 #define FIRST_NONEMPTY_ARG_14(a, b, c, d, e, f, g, h, i, j, k, l, m, n) \
                                    FIRST_NONEMPTY_ARG_2(a, FIRST_NONEMPTY_ARG_13(b, c, d, e, f, g, h, i, j, k, l, m, n))
+#define FIRST_NONEMPTY_ARG_15(a, b, c, d, e, f, g, h, i, j, k, l, m, n, o) \
+                                   FIRST_NONEMPTY_ARG_2(a, FIRST_NONEMPTY_ARG_14(b, c, d, e, f, g, h, i, j, k, l, m, n, o))
 
 #define DO2(d7, dx)                ( (nWinVersion > WIN_VERSION_7) ? FIRST_NONEMPTY_ARG_2(dx, d7) : (d7) )
 #define DO3(d7, d8, dx)            ( (nWinVersion > WIN_VERSION_8) ? FIRST_NONEMPTY_ARG_3(dx, d8, d7) : DO2(d7, d8) )
@@ -84,7 +88,9 @@ extern WORD nExplorerBuild, nExplorerQFE;
                                      FIRST_NONEMPTY_ARG_13(dx, d10_19h1, d10_r5, d10_r4, d10_r3, d10_r2, d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : \
                                      DO12(d7, d8, d81, d811, d10_t1, d10_t2, d10_r1, d10_r2, d10_r3, d10_r4, d10_r5, d10_19h1) )
 #define DO14(d7, d8, d81, d811, d10_t1, d10_t2, d10_r1, d10_r2, d10_r3, d10_r4, d10_r5, d10_19h1, d10_20h1, dx) \
-                                     DO13(d7, d8, d81, d811, d10_t1, d10_t2, d10_r1, d10_r2, d10_r3, d10_r4, d10_r5, d10_19h1, d10_20h1)
+                                   ( (nWinVersion > WIN_VERSION_10_20H1) ? \
+                                     FIRST_NONEMPTY_ARG_14(dx, d10_20h1, d10_19h1, d10_r5, d10_r4, d10_r3, d10_r2, d10_r1, d10_t2, d10_t1, d811, d81, d8, d7) : \
+                                     DO13(d7, d8, d81, d811, d10_t1, d10_t2, d10_r1, d10_r2, d10_r3, d10_r4, d10_r5, d10_19h1, d10_20h1) )
 
 #ifdef _WIN64
 #define DEF3264(d32, d64)          (d64)
@@ -143,6 +149,10 @@ extern WORD nExplorerBuild, nExplorerQFE;
 #define DO14_3264(d7_32, d7_64, d8_32, d8_64, d81_32, d81_64, d811_32, d811_64, d10_t1_32, d10_t1_64, d10_t2_32, d10_t2_64, d10_r1_32, d10_r1_64, d10_r2_32, d10_r2_64, d10_r3_32, d10_r3_64, d10_r4_32, d10_r4_64, d10_r5_32, d10_r5_64, d10_19h1_32, d10_19h1_64, d10_20h1_32, d10_20h1_64, dx_32, dx_64) \
                                    DEF3264(DO14(d7_32, d8_32, d81_32, d811_32, d10_t1_32, d10_t2_32, d10_r1_32, d10_r2_32, d10_r3_32, d10_r4_32, d10_r5_32, d10_19h1_32, d10_20h1_32, dx_32), \
                                            DO14(d7_64, d8_64, d81_64, d811_64, d10_t1_64, d10_t2_64, d10_r1_64, d10_r2_64, d10_r3_64, d10_r4_64, d10_r5_64, d10_19h1_64, d10_20h1_64, dx_64))
+
+#define DO15_3264(d7_32, d7_64, d8_32, d8_64, d81_32, d81_64, d811_32, d811_64, d10_t1_32, d10_t1_64, d10_t2_32, d10_t2_64, d10_r1_32, d10_r1_64, d10_r2_32, d10_r2_64, d10_r3_32, d10_r3_64, d10_r4_32, d10_r4_64, d10_r5_32, d10_r5_64, d10_19h1_32, d10_19h1_64, d10_20h1_32, d10_20h1_64, d11_20h2_32, d11_20h2_64, dx_32, dx_64) \
+                                   DEF3264(DO15(d7_32, d8_32, d81_32, d811_32, d10_t1_32, d10_t2_32, d10_r1_32, d10_r2_32, d10_r3_32, d10_r4_32, d10_r5_32, d10_19h1_32, d10_20h1_32, d11_20h2_32, dx_32), \
+                                           DO15(d7_64, d8_64, d81_64, d811_64, d10_t1_64, d10_t2_64, d10_r1_64, d10_r2_64, d10_r3_64, d10_r4_64, d10_r5_64, d10_19h1_64, d10_20h1_64, d11_20h2_64, dx_64))
 
 #ifndef GET_X_LPARAM
 #define GET_X_LPARAM(lParam)       ((int)(short)LOWORD(lParam))
@@ -224,9 +234,9 @@ LRESULT SendMessageBlock(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
 LRESULT TweakerSendErrorMsg(WCHAR *pText);
 
 // Undocumented WinAPI functions
-HWND WINAPI HungWindowFromGhostWindow_(HWND hwndGhost);
-HWND WINAPI GhostWindowFromHungWindow_(HWND hwndHung);
-BOOL WINAPI MirrorIcon_(HICON *phIconSmall, HICON *phIconLarge);
+HWND HungWindowFromGhostWindow_(HWND hwndGhost);
+HWND GhostWindowFromHungWindow_(HWND hwndHung);
+BOOL MirrorIcon_(HICON *phIconSmall, HICON *phIconLarge);
 
 // Window and task item functions
 BOOL IsGhostWindowClass(HWND hWnd);
@@ -260,7 +270,7 @@ BOOL TaskbarMoveThumbInGroup(LONG_PTR lpMMThumbnailLongPtr, int index_from, int 
 BOOL TaskbarMoveTaskInGroup(LONG_PTR *task_group, LONG_PTR *task_item_from, LONG_PTR *task_item_to);
 LONG_PTR *ButtonGroupFromTaskGroup(LONG_PTR lpMMTaskListLongPtr, LONG_PTR *task_group);
 BOOL TaskbarMoveGroup(LONG_PTR lpMMTaskListLongPtr, int index_from, int index_to);
-BOOL TaskbarMoveGroupByTaskItem(LONG_PTR lpMMTaskListLongPtr, LONG_PTR* task_item, int nMoveDelta);
+BOOL TaskbarMoveGroupByTaskItem(LONG_PTR lpMMTaskListLongPtr, LONG_PTR *task_item, int nMoveDelta);
 LONG_PTR *TaskbarScroll(LONG_PTR lpMMTaskListLongPtr, int nRotates, BOOL bSkipMinimized, BOOL bWarpAround, LONG_PTR *src_task_item);
 LONG_PTR *TaskbarGetTrackedButton(LONG_PTR lpMMTaskListLongPtr);
 LONG_PTR *TaskbarGetTrackedTaskItem(LONG_PTR lpMMTaskListLongPtr);
@@ -289,12 +299,12 @@ void DismissHoverUI(LONG_PTR lpMMTaskListLongPtr, BOOL bHideWithoutAnimation);
 int GetTaskbarMinWidth(void);
 int GetTaskbarMinHeight(void);
 void DisableTaskbarTopmost(BOOL bDisable);
-void EnableTaskbarBlurBehindWindow(BOOL bEnable);
 void ButtonGroupExecMenuCommand(LONG_PTR *button_group, WPARAM wCommand);
 BOOL IsMMTaskListLongPtr(LONG_PTR lp);
 BOOL IsTaskbarWindow(HWND hWnd);
 int IdentifyTaskbarWindow(HWND hWnd);
 void DisableTaskbarsAnimation(LONG_PTR **ppMainTaskListAnimationManager, ANIMATION_MANAGER_ITEM **plpSeconadryTaskListAnimationManagers);
 void RestoreTaskbarsAnimation(LONG_PTR *pMainTaskListAnimationManager, ANIMATION_MANAGER_ITEM *lpSeconadryTaskListAnimationManagers);
+void EnableTaskbars(BOOL bEnable);
 void Win10ShowStartMenu(LONG_PTR lpMMTaskbarLongPtr);
 void Win10ShowWinXPowerMenu(LONG_PTR lpMMTaskbarLongPtr);

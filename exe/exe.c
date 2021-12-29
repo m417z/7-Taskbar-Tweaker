@@ -42,8 +42,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
 	// Init launcher
 	int nArgIndex = FindCmdLineSwitch(L"-launcher");
-	if(nArgIndex != 0 && nArgIndex+1 < argc && lstrlen(argv[nArgIndex+1]) < MAX_PATH)
-		lstrcpy(szLauncherPath, argv[nArgIndex+1]);
+	if(nArgIndex != 0 && nArgIndex + 1 < argc && lstrlen(argv[nArgIndex + 1]) < MAX_PATH)
+		lstrcpy(szLauncherPath, argv[nArgIndex + 1]);
 	else
 		GetModuleFileName(NULL, szLauncherPath, MAX_PATH);
 
@@ -82,7 +82,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		!CompareWindowsBuildNumber(18362) &&
 		!CompareWindowsBuildNumber(18363) &&
 		!CompareWindowsBuildNumber(19041) &&
-		!CompareWindowsBuildNumber(19042)
+		!CompareWindowsBuildNumber(19042) &&
+		!CompareWindowsBuildNumber(19043) &&
+		!CompareWindowsBuildNumber(19044) &&
+		!CompareWindowsBuildNumber(22000)
 	)
 	{
 		if(MessageBox(NULL, LoadStrFromRsrc(IDS_BUILD_WARNING_TEXT), LoadStrFromRsrc(IDS_BUILD_WARNING_TITLE), MB_ICONEXCLAMATION | MB_YESNO) != IDYES)
@@ -199,7 +202,7 @@ BOOL Run(void)
 
 	WCHAR szMutexName[MAX_PATH];
 	lstrcpy(szMutexName, L"7TT_");
-	if(!GetUserObjectInformation(hDesktop, UOI_NAME, szMutexName + 4, sizeof(szMutexName)-(4 * sizeof(WCHAR)), NULL))
+	if(!GetUserObjectInformation(hDesktop, UOI_NAME, szMutexName + 4, sizeof(szMutexName) - (4 * sizeof(WCHAR)), NULL))
 	{
 		MessageBox(NULL, L"GetUserObjectInformation() failed", NULL, MB_ICONHAND);
 		CloseHandle(hMutexOld);
@@ -233,8 +236,8 @@ BOOL Run(void)
 			for(int i = 0; i < DlgParam.nInitErrorsCount; i++)
 				MessageBox(hWnd, LoadStrFromRsrc(DlgParam.dwInitErrors[i]), NULL, MB_ICONHAND);
 
-			if(DlgParam.uInjectionErrorID)
-				InjectionErrorMsgBox(hWnd, DlgParam.uInjectionErrorID);
+			if(DlgParam.dwInjectionError)
+				InjectionErrorMsgBox(hWnd, DlgParam.dwInjectionError);
 
 			MSG msg;
 			BOOL bRet;
@@ -365,11 +368,13 @@ LRESULT CALLBACK DlgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 LRESULT OnInitDialog(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM *pDlgParam)
 {
-	UINT uErrorID;
+	DWORD dwError;
 
 	pDlgParam->hAdvancedOptionsWnd = NULL;
 	pDlgParam->nInitErrorsCount = 0;
-	pDlgParam->uInjectionErrorID = 0;
+	pDlgParam->uInjectionAttempts = 0;
+	pDlgParam->dwInjectionError = 0;
+	pDlgParam->dwWantedToShowUpdateDialogTickCount = 0;
 	pDlgParam->bLangChanged = FALSE;
 	pDlgParam->nExitBlockCount = 0;
 	pDlgParam->bClosing = FALSE;
@@ -437,14 +442,21 @@ LRESULT OnInitDialog(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PAR
 	InitDlg(hWnd, pDlgParam->nOptions);
 
 	// Inject
-	uErrorID = ExplorerInject(hWnd, UWM_EJECTED_FROM_EXPLORER, twSettings.nLanguage, pDlgParam->nOptions, szIniFile);
-	if(uErrorID)
+	dwError = ExplorerInject(hWnd, UWM_EJECTED_FROM_EXPLORER, twSettings.nLanguage, pDlgParam->nOptions, szIniFile);
+	if(dwError)
 	{
 		// Don't show an error message if the taskbar wasn't found
-		if(uErrorID != IDS_INJERROR_NOTBAR)
-			pDlgParam->uInjectionErrorID = uErrorID;
+		if(dwError != EXE_ERR_NO_TASKBAR)
+		{
+			pDlgParam->uInjectionAttempts++;
+			pDlgParam->dwInjectionError = dwError;
+		}
 
 		EnableOptions(hWnd, FALSE);
+	}
+	else
+	{
+		pDlgParam->uInjectionAttempts++;
 	}
 
 	// Done
@@ -499,7 +511,7 @@ LRESULT OnCtlColorStatic(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG
 	return (LRESULT)pDlgParam->hBgBrush;
 }
 
-LRESULT OnDpiChanged(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM* pDlgParam)
+LRESULT OnDpiChanged(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM *pDlgParam)
 {
 	if(pDlgParam->hBgBrush)
 		DeleteObject(pDlgParam->hBgBrush);
@@ -622,7 +634,7 @@ LRESULT OnUAdvancedOptsDlg(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, D
 	return FALSE;
 }
 
-LRESULT OnUEjectedFromExplorer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM* pDlgParam)
+LRESULT OnUEjectedFromExplorer(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DLG_PARAM *pDlgParam)
 {
 	EnableOptions(hWnd, FALSE);
 	return 0;
@@ -830,20 +842,47 @@ LRESULT OnRegisteredTaskbarCreated(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM l
 	Shell_NotifyIcon(NIM_ADD, &pDlgParam->nid);
 	Shell_NotifyIcon(NIM_SETVERSION, &pDlgParam->nid);
 
-	if(!ExplorerIsInjected() && !pDlgParam->uInjectionErrorID)
+	if(!ExplorerIsInjected())
 	{
-		UINT uErrorID = ExplorerInject(hWnd, UWM_EJECTED_FROM_EXPLORER, twSettings.nLanguage, pDlgParam->nOptions, szIniFile);
-		if(uErrorID)
+		// Try if there was no prior error, or if the error happened before
+		// injection was attempted (so no crash loop can occur)
+		BOOL bTryAgain = !pDlgParam->dwInjectionError ||
+			pDlgParam->dwInjectionError == EXE_ERR_NO_DLL ||
+			pDlgParam->dwInjectionError == EXE_ERR_NO_TASKBAR ||
+			pDlgParam->dwInjectionError == EXE_ERR_NO_TASKLIST ||
+			pDlgParam->dwInjectionError == EXE_ERR_HIDDEN_TASKLIST ||
+			pDlgParam->dwInjectionError == EXE_ERR_OPEN_PROCESS;
+
+		if(bTryAgain)
 		{
-			// Don't show an error message if the taskbar wasn't found
-			if(uErrorID != IDS_INJERROR_NOTBAR)
+			DWORD dwError = ExplorerInject(hWnd, UWM_EJECTED_FROM_EXPLORER, twSettings.nLanguage, pDlgParam->nOptions, szIniFile);
+			if(dwError)
 			{
-				pDlgParam->uInjectionErrorID = uErrorID; // Prevents infinite crashes and restarts of explorer
-				InjectionErrorMsgBox(IsWindowEnabled(hWnd) ? hWnd : GetLastActivePopup(hWnd), uErrorID);
+				// Don't show an error message if the taskbar wasn't found
+				if(dwError != EXE_ERR_NO_TASKBAR)
+				{
+					pDlgParam->uInjectionAttempts++;
+					pDlgParam->dwInjectionError = dwError; // Prevents infinite crashes and restarts of explorer
+					InjectionErrorMsgBox(IsWindowEnabled(hWnd) ? hWnd : GetLastActivePopup(hWnd), dwError);
+				}
+			}
+			else
+			{
+				pDlgParam->uInjectionAttempts++;
+				EnableOptions(hWnd, TRUE);
 			}
 		}
-		else
-			EnableOptions(hWnd, TRUE);
+	}
+
+	// Explorer was started/restarted. This could have happened due to a crash
+	// caused by the tweaker. Show the update dialog to help the user notice
+	// that there's a new version, which hopefully fixes the error, and update.
+	// Note: Do that if there was an injection error, or if injection was
+	// attempted more than once. If injection takes place the first time,
+	// perhaps explorer was just launched after the tweaker.
+	if(pDlgParam->dwInjectionError || pDlgParam->uInjectionAttempts > 1)
+	{
+		// Omitted from public code
 	}
 
 	return FALSE;
@@ -974,7 +1013,7 @@ HBRUSH CreateBgBrush(HWND hWnd)
 					hdc = GetDC(hWnd);
 
 					GetClientRect(hWnd, &rc);
-					height_client = rc.bottom-rc.top;
+					height_client = rc.bottom - rc.top;
 
 					hdcBitmap1 = CreateCompatibleDC(hdc);
 					hPrevBitmap1 = (HBITMAP)SelectObject(hdcBitmap1, hBitmap1);
@@ -996,7 +1035,7 @@ HBRUSH CreateBgBrush(HWND hWnd)
 					else if(height_client <= height1 + height3)
 					{
 						BitBlt(hdcBg, 0, 0, 1, height1, hdcBitmap1, 0, 0, SRCCOPY);
-						BitBlt(hdcBg, 0, height1, 1, height_client-height1, hdcBitmap3, 0, 0, SRCCOPY);
+						BitBlt(hdcBg, 0, height1, 1, height_client - height1, hdcBitmap3, 0, 0, SRCCOPY);
 					}
 					else
 					{
@@ -1004,16 +1043,16 @@ HBRUSH CreateBgBrush(HWND hWnd)
 						height_middle_extra_needed = height2 - (((height_middle - 1) % height2) + 1);
 						middle_bmp_count = (height_middle + height_middle_extra_needed) / height2;
 
-						height_top_cut = height_middle_extra_needed/2;
+						height_top_cut = height_middle_extra_needed / 2;
 						height_bottom_cut = height_middle_extra_needed - height_top_cut;
 
-						BitBlt(hdcBg, 0, 0, 1, height1-height_top_cut, hdcBitmap1, 0, height_top_cut, SRCCOPY);
+						BitBlt(hdcBg, 0, 0, 1, height1 - height_top_cut, hdcBitmap1, 0, height_top_cut, SRCCOPY);
 
-						for(i=0; i<middle_bmp_count; i++)
-							BitBlt(hdcBg, 0, (height1-height_top_cut)+height2*i, 1, height2, hdcBitmap2, 0, 0, SRCCOPY);
+						for(i = 0; i < middle_bmp_count; i++)
+							BitBlt(hdcBg, 0, (height1 - height_top_cut) + height2 * i, 1, height2, hdcBitmap2, 0, 0, SRCCOPY);
 
-						BitBlt(hdcBg, 0, height_client-(height3-height_bottom_cut),
-							1, height3-height_bottom_cut, hdcBitmap3, 0, 0, SRCCOPY);
+						BitBlt(hdcBg, 0, height_client - (height3 - height_bottom_cut),
+							1, height3 - height_bottom_cut, hdcBitmap3, 0, 0, SRCCOPY);
 					}
 
 					hBgBrush = CreatePatternBrush(hBgBitmap);
@@ -1067,7 +1106,7 @@ int FindCmdLineSwitch(WCHAR *pSwitch)
 {
 	int i;
 
-	for(i=1; i<argc; i++)
+	for(i = 1; i < argc; i++)
 		if(lstrcmpi(argv[i], pSwitch) == 0)
 			return i;
 
@@ -1111,7 +1150,7 @@ void InitNotifyIconData(HWND hWnd, DLG_PARAM *pDlgParam)
 	p_nid->cbSize = sizeof(NOTIFYICONDATA);
 	p_nid->hWnd = hWnd;
 	p_nid->uID = 0;
-	p_nid->uFlags = NIF_MESSAGE|NIF_ICON|NIF_TIP|NIF_STATE|NIF_SHOWTIP;
+	p_nid->uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_STATE | NIF_SHOWTIP;
 	p_nid->uCallbackMessage = UWM_NOTIFYICON;
 	p_nid->hIcon = pDlgParam->hSmallIcon;
 	lstrcpy(p_nid->szTip, L"7+ Taskbar Tweaker");
@@ -1120,7 +1159,7 @@ void InitNotifyIconData(HWND hWnd, DLG_PARAM *pDlgParam)
 	lstrcpy(p_nid->szInfo, LoadStrFromRsrc(IDS_UPDATE_BALLOON_TEXT));
 	p_nid->uVersion = NOTIFYICON_VERSION_4;
 	lstrcpy(p_nid->szInfoTitle, LoadStrFromRsrc(IDS_UPDATE_TEXT));
-	p_nid->dwInfoFlags = NIIF_INFO|NIIF_RESPECT_QUIET_TIME;
+	p_nid->dwInfoFlags = NIIF_INFO | NIIF_RESPECT_QUIET_TIME;
 
 	UpdateNotifyIconData(hWnd, pDlgParam);
 }
@@ -1195,43 +1234,15 @@ BOOL ShowHelp(HWND hWnd)
 
 BOOL ShowHelpOfLang(HWND hWnd, LANGID langid)
 {
-	WCHAR szLocaleName[LOCALE_NAME_MAX_LENGTH];
-	int nLocaleNameLen;
-	WCHAR szFilePath[MAX_PATH];
-	int nFilePathLen;
-	DWORD dwFileAttributes;
-
-	nLocaleNameLen = LCIDToLocaleName(MAKELCID(langid, SORT_DEFAULT), szLocaleName, LOCALE_NAME_MAX_LENGTH, 0);
-	if(nLocaleNameLen == 0)
+	WCHAR szHelpFilePath[MAX_PATH];
+	if(!GetHelpFilePath(langid, szLauncherPath, szHelpFilePath))
 		return FALSE;
 
-	lstrcpy(szFilePath, szLauncherPath);
-	nFilePathLen = lstrlen(szFilePath);
-
-	do
-	{
-		nFilePathLen--;
-
-		if(nFilePathLen < 0)
-			return FALSE;
-	}
-	while(szFilePath[nFilePathLen] != L'\\');
-
-	nFilePathLen++;
-	szFilePath[nFilePathLen] = L'\0';
-
-	if(nFilePathLen+(sizeof("help\\")-1)+nLocaleNameLen+(sizeof(".chm")-1) > MAX_PATH-1)
-		return FALSE;
-
-	lstrcat(szFilePath, L"help\\");
-	lstrcat(szFilePath, szLocaleName);
-	lstrcat(szFilePath, L".chm");
-
-	dwFileAttributes = GetFileAttributes(szFilePath);
+	DWORD dwFileAttributes = GetFileAttributes(szHelpFilePath);
 	if(dwFileAttributes == INVALID_FILE_ATTRIBUTES || (dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
 		return FALSE;
 
-	return !((int)(UINT_PTR)ShellExecute(hWnd, NULL, szFilePath, NULL, NULL, SW_SHOWNORMAL) <= 32);
+	return !((int)(UINT_PTR)ShellExecute(hWnd, NULL, szHelpFilePath, NULL, NULL, SW_SHOWNORMAL) <= 32);
 }
 
 void AboutMsgBox(HWND hWnd)
@@ -1243,7 +1254,7 @@ void AboutMsgBox(HWND hWnd)
 	tdcTaskDialogConfig.cbSize = sizeof(TASKDIALOGCONFIG);
 	tdcTaskDialogConfig.hwndParent = hWnd;
 	tdcTaskDialogConfig.hInstance = GetModuleHandle(NULL);
-	tdcTaskDialogConfig.dwFlags = TDF_ENABLE_HYPERLINKS|TDF_ALLOW_DIALOG_CANCELLATION|TDF_SIZE_TO_CONTENT;
+	tdcTaskDialogConfig.dwFlags = TDF_ENABLE_HYPERLINKS | TDF_ALLOW_DIALOG_CANCELLATION | TDF_SIZE_TO_CONTENT;
 	tdcTaskDialogConfig.dwCommonButtons = TDCBF_OK_BUTTON;
 	tdcTaskDialogConfig.pszWindowTitle = LoadStrFromRsrc(IDS_ABOUT_CAPT);
 	tdcTaskDialogConfig.pszMainIcon = MAKEINTRESOURCE(IDI_MAIN);
@@ -1253,7 +1264,7 @@ void AboutMsgBox(HWND hWnd)
 #endif // VERSION_BUILD
 		L"\x202C"; // Note: string is marked with Unicode LEFT-TO-RIGHT EMBEDDING
 	tdcTaskDialogConfig.pszContent = LoadStrFromRsrc(IDS_ABOUT_TEXT);
-	tdcTaskDialogConfig.pfCallback = AboutMsgTaskDialogCallbackProc;
+	tdcTaskDialogConfig.pfCallback = TaskDialogWithLinksCallbackProc;
 
 	if(GetWindowLong(hWnd, GWL_EXSTYLE) & WS_EX_LAYOUTRTL)
 		tdcTaskDialogConfig.dwFlags |= TDF_RTL_LAYOUT;
@@ -1261,26 +1272,64 @@ void AboutMsgBox(HWND hWnd)
 	TaskDialogIndirect(&tdcTaskDialogConfig, NULL, NULL, NULL);
 }
 
-void InjectionErrorMsgBox(HWND hWnd, UINT uErrorID)
+void InjectionErrorMsgBox(HWND hWnd, DWORD dwError)
 {
-	DWORD dwExtraParam = (uErrorID & 0xFFF00000) >> (4 * 5);
-	if(!dwExtraParam)
+	if(dwError == EXE_ERR_HIDDEN_TASKLIST)
 	{
-		MessageBox(hWnd, LoadStrFromRsrc(uErrorID), NULL, MB_ICONHAND);
-		return;
+#pragma warning(push)
+#pragma warning(disable: 4996) // disable deprecation message
+		OSVERSIONINFO osversioninfo;
+		ZeroMemory(&osversioninfo, sizeof(OSVERSIONINFO));
+		osversioninfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+		GetVersionEx(&osversioninfo);
+#pragma warning(pop)
+
+		if(osversioninfo.dwMajorVersion == 10 && osversioninfo.dwMinorVersion == 0 && osversioninfo.dwBuildNumber >= 22000)
+		{
+			// If the task list is hidden on Windows 11, that means that the
+			// new taskbar is used, which is unsupported.
+			Windows11UnsupportedMsgBox(hWnd);
+			return;
+		}
 	}
 
-	UINT uStrId = uErrorID & 0x000FFFFF;
-	WCHAR *pStr = LoadStrFromRsrc(uStrId);
+	WCHAR *pErrorString;
+
+	switch(dwError)
+	{
+	case EXE_ERR_NO_DLL:
+		pErrorString = LoadStrFromRsrc(IDS_INJERROR_NODLL);
+		break;
+
+	case EXE_ERR_NO_TASKBAR:
+		pErrorString = LoadStrFromRsrc(IDS_INJERROR_NOTBAR);
+		break;
+
+	case EXE_ERR_NO_TASKLIST:
+		pErrorString = LoadStrFromRsrc(IDS_INJERROR_NOTBAR);
+		break;
+
+	case EXE_ERR_HIDDEN_TASKLIST:
+		pErrorString = LoadStrFromRsrc(IDS_INJERROR_NOTBAR);
+		break;
+
+	case EXE_ERR_OPEN_PROCESS:
+		pErrorString = LoadStrFromRsrc(IDS_INJERROR_EXPROC);
+		break;
+
+	case EXE_ERR_OTHER_ERROR:
+		pErrorString = LoadStrFromRsrc(IDS_INJERROR_X3);
+		break;
+
+	default:
+		pErrorString = LoadStrFromRsrc(IDS_INJERROR_LOADDLL);
+		break;
+	}
 
 	WCHAR *pErrorDescription = NULL;
 
-	switch(dwExtraParam)
+	switch(dwError)
 	{
-	case INJ_ERR_BEFORE_RUN:
-	case INJ_ERR_BEFORE_GETMODULEHANDLE:
-	case INJ_ERR_BEFORE_LOADLIBRARY:
-	case INJ_ERR_BEFORE_GETPROCADDR:
 	case INJ_ERR_GETMODULEHANDLE:
 	case INJ_ERR_LOADLIBRARY:
 	case INJ_ERR_GETPROCADDR:
@@ -1339,7 +1388,7 @@ void InjectionErrorMsgBox(HWND hWnd, UINT uErrorID)
 	}
 
 	WCHAR szBuffer[1024 + 1];
-	wsprintf(szBuffer, L"%s (%u)%s%s", pStr, dwExtraParam,
+	wsprintf(szBuffer, L"%s (%u)%s%s", pErrorString, dwError,
 		pErrorDescription ? L"\n\n" : L"",
 		pErrorDescription ? pErrorDescription : L""
 	);
@@ -1347,7 +1396,32 @@ void InjectionErrorMsgBox(HWND hWnd, UINT uErrorID)
 	MessageBox(hWnd, szBuffer, NULL, MB_ICONHAND);
 }
 
-HRESULT CALLBACK AboutMsgTaskDialogCallbackProc(HWND hWnd, UINT uNotification, WPARAM wParam, LPARAM lParam, LONG_PTR dwRefData)
+void Windows11UnsupportedMsgBox(HWND hWnd)
+{
+	TASKDIALOGCONFIG tdcTaskDialogConfig;
+
+	ZeroMemory(&tdcTaskDialogConfig, sizeof(TASKDIALOGCONFIG));
+
+	tdcTaskDialogConfig.cbSize = sizeof(TASKDIALOGCONFIG);
+	tdcTaskDialogConfig.hwndParent = hWnd;
+	tdcTaskDialogConfig.hInstance = GetModuleHandle(NULL);
+	tdcTaskDialogConfig.dwFlags = TDF_ENABLE_HYPERLINKS | TDF_ALLOW_DIALOG_CANCELLATION | TDF_SIZE_TO_CONTENT;
+	tdcTaskDialogConfig.dwCommonButtons = TDCBF_OK_BUTTON;
+	tdcTaskDialogConfig.pszWindowTitle = L"Unsupported";
+	tdcTaskDialogConfig.pszMainIcon = MAKEINTRESOURCE(IDI_MAIN);
+	tdcTaskDialogConfig.pszMainInstruction = L"The new Windows 11 taskbar is not supported by 7+ Taskbar Tweaker";
+	tdcTaskDialogConfig.pszContent =
+		L"Please refer to the following blog post for more details:\n"
+		L"<A HREF=\"https://rammichael.com/7-taskbar-tweaker-and-a-first-look-at-windows-11\">7+ Taskbar Tweaker and a first look at Windows 11</A>"
+		L"\n\n"
+		L"It's possible to keep using 7+ Taskbar Tweaker on Windows 11 by reverting to the old taskbar:\n"
+		L"<A HREF=\"https://rammichael.com/7-taskbar-tweaker-on-windows-11-with-windows-10s-taskbar\">7+ Taskbar Tweaker on Windows 11 with Windows 10’s taskbar</A>";
+	tdcTaskDialogConfig.pfCallback = TaskDialogWithLinksCallbackProc;
+
+	TaskDialogIndirect(&tdcTaskDialogConfig, NULL, NULL, NULL);
+}
+
+HRESULT CALLBACK TaskDialogWithLinksCallbackProc(HWND hWnd, UINT uNotification, WPARAM wParam, LPARAM lParam, LONG_PTR dwRefData)
 {
 	if(uNotification == TDN_HYPERLINK_CLICKED)
 	{
