@@ -16,7 +16,7 @@ typedef struct {
 } CTRL_INFO;
 
 void InitDlg(HWND hWnd, int pOptions[OPTS_COUNT]);
-int MeasureStringWidthForCombo(HWND hComboWnd, WCHAR *pString);
+int MeasureStringWidthForCombo(HWND hComboWnd, const WCHAR *pString);
 BOOL OptionsUpdFromDlg(HWND hWnd, int nCtrlId, int nNotificationCode, int pOptions[OPTS_COUNT]);
 void EnableOptions(HWND hWnd, BOOL bEnable);
 

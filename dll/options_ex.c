@@ -6,7 +6,7 @@ BOOL LoadOptionsEx(int pOptionsEx[OPTS_EX_COUNT])
 {
 	struct {
 		int nDefaultValue;
-		WCHAR *pValueName;
+		const WCHAR *pValueName;
 	} sOptionsEx[OPTS_EX_COUNT] = {
 		0, L"drag_towards_desktop", // has a temporary GUI deprecation code
 		0, L"nocheck_minimize",

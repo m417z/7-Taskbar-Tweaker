@@ -85,7 +85,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		!CompareWindowsBuildNumber(19042) &&
 		!CompareWindowsBuildNumber(19043) &&
 		!CompareWindowsBuildNumber(19044) &&
-		!CompareWindowsBuildNumber(22000)
+		!CompareWindowsBuildNumber(19045) &&
+		!CompareWindowsBuildNumber(20348) &&
+		!CompareWindowsBuildNumber(22000) &&
+		!CompareWindowsBuildNumber(22621)
 	)
 	{
 		if(MessageBox(NULL, LoadStrFromRsrc(IDS_BUILD_WARNING_TEXT), LoadStrFromRsrc(IDS_BUILD_WARNING_TITLE), MB_ICONEXCLAMATION | MB_YESNO) != IDYES)
@@ -1102,7 +1105,7 @@ BOOL IsHighContrastOn(void)
 	return FALSE;
 }
 
-int FindCmdLineSwitch(WCHAR *pSwitch)
+int FindCmdLineSwitch(const WCHAR *pSwitch)
 {
 	int i;
 
@@ -1137,7 +1140,7 @@ void CustomizeSystemMenu(HWND hWnd)
 	menu_info.fType = MFT_STRING;
 	menu_info.fState = MFS_ENABLED;
 	menu_info.wID = SYSTEM_MENU_ADVANCED;
-	menu_info.dwTypeData = LoadStrFromRsrc(IDS_RCMENU_ADVANCED_OPTIONS);
+	menu_info.dwTypeData = (LPWSTR)LoadStrFromRsrc(IDS_RCMENU_ADVANCED_OPTIONS);
 	InsertMenuItem(system_menu, index, TRUE, &menu_info);
 }
 
@@ -1293,7 +1296,7 @@ void InjectionErrorMsgBox(HWND hWnd, DWORD dwError)
 		}
 	}
 
-	WCHAR *pErrorString;
+	const WCHAR *pErrorString;
 
 	switch(dwError)
 	{
@@ -1326,7 +1329,7 @@ void InjectionErrorMsgBox(HWND hWnd, DWORD dwError)
 		break;
 	}
 
-	WCHAR *pErrorDescription = NULL;
+	const WCHAR *pErrorDescription = NULL;
 
 	switch(dwError)
 	{
@@ -1398,6 +1401,13 @@ void InjectionErrorMsgBox(HWND hWnd, DWORD dwError)
 
 void Windows11UnsupportedMsgBox(HWND hWnd)
 {
+	int nNoUnsupportedWarning;
+	if(PSGetSingleInt(NULL, L"nounsupportedwarning_w11", &nNoUnsupportedWarning) == ERROR_SUCCESS &&
+		nNoUnsupportedWarning)
+	{
+		return;
+	}
+
 	TASKDIALOGCONFIG tdcTaskDialogConfig;
 
 	ZeroMemory(&tdcTaskDialogConfig, sizeof(TASKDIALOGCONFIG));
@@ -1412,13 +1422,20 @@ void Windows11UnsupportedMsgBox(HWND hWnd)
 	tdcTaskDialogConfig.pszMainInstruction = L"The new Windows 11 taskbar is not supported by 7+ Taskbar Tweaker";
 	tdcTaskDialogConfig.pszContent =
 		L"Please refer to the following blog post for more details:\n"
-		L"<A HREF=\"https://rammichael.com/7-taskbar-tweaker-and-a-first-look-at-windows-11\">7+ Taskbar Tweaker and a first look at Windows 11</A>"
+		L"<A HREF=\"https://ramensoftware.com/7-taskbar-tweaker-and-a-first-look-at-windows-11\">7+ Taskbar Tweaker and a first look at Windows 11</A>"
 		L"\n\n"
-		L"It's possible to keep using 7+ Taskbar Tweaker on Windows 11 by reverting to the old taskbar:\n"
-		L"<A HREF=\"https://rammichael.com/7-taskbar-tweaker-on-windows-11-with-windows-10s-taskbar\">7+ Taskbar Tweaker on Windows 11 with Windows 10’s taskbar</A>";
+		L"Some of the tweaks are available in Windows 11 as Windhawk mods. See the list of available mods and vote for the next mods to be implemented:\n"
+		L"<A HREF=\"https://ramensoftware.com/windhawk-mods-for-the-windows-11-taskbar\">Windhawk mods for the Windows 11 taskbar</A>"
+		L"\n\n"
+		L"It's also possible to keep using 7+ Taskbar Tweaker on Windows 11 by reverting to the old taskbar:\n"
+		L"<A HREF=\"https://ramensoftware.com/7-taskbar-tweaker-on-windows-11-with-windows-10s-taskbar\">7+ Taskbar Tweaker on Windows 11 with Windows 10's taskbar</A>";
+	tdcTaskDialogConfig.pszVerificationText = L"Don't show this dialog in the future";
 	tdcTaskDialogConfig.pfCallback = TaskDialogWithLinksCallbackProc;
 
-	TaskDialogIndirect(&tdcTaskDialogConfig, NULL, NULL, NULL);
+	BOOL fVerificationFlagChecked;
+	HRESULT hr = TaskDialogIndirect(&tdcTaskDialogConfig, NULL, NULL, &fVerificationFlagChecked);
+	if(SUCCEEDED(hr) && fVerificationFlagChecked)
+		PSSetSingleInt(NULL, L"nounsupportedwarning_w11", 1);
 }
 
 HRESULT CALLBACK TaskDialogWithLinksCallbackProc(HWND hWnd, UINT uNotification, WPARAM wParam, LPARAM lParam, LONG_PTR dwRefData)
@@ -1434,7 +1451,7 @@ HRESULT CALLBACK TaskDialogWithLinksCallbackProc(HWND hWnd, UINT uNotification, 
 
 BOOL ApplyLanguage(LANGID new_language_id)
 {
-	WCHAR *pOldLangName, *pNewLangName;
+	const WCHAR *pOldLangName, *pNewLangName;
 
 	pOldLangName = LoadStrFromRsrc(IDS_LANGUAGE);
 	SetThreadUILanguage(new_language_id);

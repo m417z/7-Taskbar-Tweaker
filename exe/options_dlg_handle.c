@@ -18,7 +18,7 @@ void InitDlg(HWND hWnd, int pOptions[OPTS_COUNT])
 		IDS_EMPTYCOMBO_1, // OPT_EMPTYDBLCLICK
 		IDS_EMPTYCOMBO_1, // OPT_EMPTYMCLICK
 	};
-	WCHAR *pComboBoxStr;
+	const WCHAR *pComboBoxStr;
 	int nComboBoxWidth, nComboBoxMaxWidth;
 	RECT rc;
 	int i;
@@ -113,7 +113,7 @@ void InitDlg(HWND hWnd, int pOptions[OPTS_COUNT])
 	}
 }
 
-int MeasureStringWidthForCombo(HWND hComboWnd, WCHAR *pString)
+int MeasureStringWidthForCombo(HWND hComboWnd, const WCHAR *pString)
 {
 	HDC hDC;
 	HFONT font, prevfont;

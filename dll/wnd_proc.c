@@ -20,6 +20,12 @@
 #include "dpa_func_hook.h"
 #include "minhook_preloaded.h"
 
+typedef struct _INIT_TASKBAR_PROC_PARAM {
+	int *pOptions;
+	HANDLE hDoneEvent;
+	DWORD dwError;
+} INIT_TASKBAR_PROC_PARAM;
+
 typedef struct _notifyiconidentifier_internal {
 	DWORD dwMagic;   // 0x34753423
 	DWORD dwRequest; // 1 for (x,y) | 2 for (w,h)
@@ -189,7 +195,6 @@ DWORD WndProcInit(int pOptions[OPTS_COUNT])
 	HMODULE hExplorer;
 	HANDLE hExplorerIsShellMutex;
 	LONG_PTR lpTrayNotifyLongPtr;
-	DWORD dwError;
 
 	// Imports
 	hExplorer = GetModuleHandle(NULL);
@@ -365,24 +370,36 @@ DWORD WndProcInit(int pOptions[OPTS_COUNT])
 	}
 
 	// Init other stuff
+	INIT_TASKBAR_PROC_PARAM init_param;
+	init_param.pOptions = pOptions;
+	init_param.hDoneEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+	init_param.dwError = LIB_ERR_MSG_DLL_INIT;
+	if(!init_param.hDoneEvent)
+		return LIB_ERR_MSG_DLL_INIT;
+
 	ppTaskbarSubWndProc = &((*(void ***)lpTaskbarLongPtr)[2]);
 	PointerRedirectionAdd(ppTaskbarSubWndProc, InitTaskbarProc, &prTaskbarSubWndProc);
 
-	dwError = (DWORD)SendMessage(hTaskbarWnd, uTweakerMsg, (WPARAM)pOptions, MSG_DLL_INIT);
-	if(dwError == 0)
+	// SendMessage was used before, but it was replaced with PostMessage with an
+	// event because of problems with the original approach. See:
+	// https://tweaker.userecho.com/topics/1195-the-old-could-not-load-library-error-on-windows-10-21h1-2009
+	if(!PostMessage(hTaskbarWnd, uTweakerMsg, (WPARAM)&init_param, MSG_DLL_INIT))
 	{
+		CloseHandle(init_param.hDoneEvent);
 		PointerRedirectionRemove(ppTaskbarSubWndProc, &prTaskbarSubWndProc);
 		return LIB_ERR_MSG_DLL_INIT;
 	}
 
-	dwError -= 1;
-	if(dwError)
+	WaitForSingleObject(init_param.hDoneEvent, INFINITE);
+	CloseHandle(init_param.hDoneEvent);
+
+	if(init_param.dwError)
 	{
 		SendMessage(hTaskbarWnd, uTweakerMsg, 0, MSG_DLL_UNSUBCLASS);
 		while(wnd_proc_call_counter > 0)
 			Sleep(10);
 
-		return dwError;
+		return init_param.dwError;
 	}
 
 	RefreshTaskbarHardcore_WaitTillDone();
@@ -393,11 +410,15 @@ static LRESULT THISCALL_C InitTaskbarProc(THISCALL_C_THIS_ARG(LONG_PTR *this_ptr
 {
 	if(uMsg == uTweakerMsg && lParam == MSG_DLL_INIT)
 	{
+		INIT_TASKBAR_PROC_PARAM *p_init_param = (INIT_TASKBAR_PROC_PARAM *)wParam;
+
 		PointerRedirectionRemove(ppTaskbarSubWndProc, &prTaskbarSubWndProc);
 
 		SubclassExplorerWindows();
+		p_init_param->dwError = InitFromExplorerThread(p_init_param->pOptions);
+		SetEvent(p_init_param->hDoneEvent);
 
-		return 1 + InitFromExplorerThread((int *)wParam);
+		return 0;
 	}
 
 	return ((LRESULT(THISCALL_C *)(THISCALL_C_THIS_TYPE(LONG_PTR *), HWND, UINT, WPARAM, LPARAM))prTaskbarSubWndProc.pOriginalAddress)(THISCALL_C_THIS_VAL(this_ptr), hWnd, uMsg, wParam, lParam);
@@ -644,7 +665,7 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 	LONG_PTR lpSecondaryTaskListLongPtr;
 	BOOL bOldMouseHook, bNewMouseHook;
 	int nRefreshTaskbar;
-	long nNewMinTaskbarWidth, nNewMinSecondaryTaskbarWidth;
+	int nNewMinTaskbarWidth, nNewMinSecondaryTaskbarWidth;
 	BOOL bResizedTaskbar;
 	RECT rc;
 
@@ -1182,7 +1203,7 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 		case 0: // Is taskbar on left of the screen
 		case 2: // Is taskbar on right of the screen
 			GetWindowRect(hTaskbarWnd, &rc);
-			if(rc.right - rc.left == nInitialMinWidth)
+			if(rc.right - rc.left <= nInitialMinWidth)
 			{
 				if(nNewMinTaskbarWidth > 0 && nNewMinTaskbarWidth < rc.right - rc.left)
 				{
@@ -1257,7 +1278,7 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 			case 0: // Is taskbar on left of the screen
 			case 2: // Is taskbar on right of the screen
 				GetWindowRect(hSecondaryTaskbarWnd, &rc);
-				if(rc.right - rc.left == nInitialMinWidth)
+				if(rc.right - rc.left <= nInitialMinWidth)
 				{
 					if(nNewMinSecondaryTaskbarWidth > 0 && nNewMinSecondaryTaskbarWidth < rc.right - rc.left)
 					{
@@ -1435,6 +1456,8 @@ static LRESULT CALLBACK NewTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPAR
 		{
 			result = DefSubclassProc(hWnd, uMsg, wParam, lParam);
 
+			// Change Shell_NotifyIconGetRect handling result in case it returns 0.
+			// It can return 0 if the volume icon is not visible. In this case, return hTrayNotifyWnd rect as a fallback.
 			if(nOptions[OPT_WHEEL_VOLTASKBAR] == 1 || nOptions[OPT_WHEEL_VOLNOTIFY] == 1)
 			{
 				// Is this the sndvol Shell_NotifyIconGetRect function message?
@@ -2303,12 +2326,12 @@ static LRESULT CALLBACK NewTaskSwProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 			{
 				// Animation causes troubles when moving between groups, so we disable it
 				LONG_PTR *pMainTaskListAnimationManager;
-				ANIMATION_MANAGER_ITEM *lpSeconadryTaskListAnimationManagers;
-				DisableTaskbarsAnimation(&pMainTaskListAnimationManager, &lpSeconadryTaskListAnimationManagers);
+				ANIMATION_MANAGER_ITEM *lpSecondaryTaskListAnimationManagers;
+				DisableTaskbarsAnimation(&pMainTaskListAnimationManager, &lpSecondaryTaskListAnimationManagers);
 
 				result = DefSubclassProc(hWnd, uMsg, wParam, lParam);
 
-				RestoreTaskbarsAnimation(pMainTaskListAnimationManager, lpSeconadryTaskListAnimationManagers);
+				RestoreTaskbarsAnimation(pMainTaskListAnimationManager, lpSecondaryTaskListAnimationManagers);
 			}
 			else
 				result = DefSubclassProc(hWnd, uMsg, wParam, lParam);
@@ -2424,7 +2447,7 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 					button_group = TaskbarGetTrackedButtonGroup(lpMMTaskListLongPtr);
 					if(button_group)
 					{
-						button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
+						button_group_type = (int)button_group[DO2(6, 8)];
 						if(button_group_type == 2)
 						{
 							DefSubclassProc(hWnd, WM_LBUTTONDOWN, wParam, lParam);
@@ -2566,7 +2589,7 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 					button_group = *EV_MM_TASKLIST_PRESSED_BUTTON_GROUP(lpMMTaskListLongPtr);
 					if(button_group)
 					{
-						button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
+						button_group_type = (int)button_group[DO2(6, 8)];
 						if(button_group_type == 2) // Pinned
 						{
 							if(nOptions[OPT_PINNED_DBLCLICK] == 1 && !(wParam & MK_SHIFT))
@@ -2649,7 +2672,7 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 						button_group = *EV_MM_TASKLIST_PRESSED_BUTTON_GROUP(lpMMTaskListLongPtr);
 						if(button_group)
 						{
-							button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
+							button_group_type = (int)button_group[DO2(6, 8)];
 							if(button_group_type == 2) // Pinned
 							{
 								if(nOptions[OPT_PINNED_DBLCLICK] == 1)
@@ -2739,7 +2762,7 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 
 					if(button_group)
 					{
-						button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
+						button_group_type = (int)button_group[DO2(6, 8)];
 						if(button_group_type == 1 || button_group_type == 3)
 						{
 							switch(nOption)
@@ -3792,6 +3815,7 @@ static LRESULT CALLBACK NewW7StartButtonProc(HWND hWnd, UINT uMsg, WPARAM wParam
 
 			lpW7StartMenu = (LONG_PTR)EV_TASKBAR_W7_START_BTN_CLASS();
 
+			// DEF3264: CStartButton::_CalcStartButtonPos
 			pszW7StartBtnSize = (SIZE *)(lpW7StartMenu + DEF3264(0x20, 0x38));
 
 			if((SIZE *)lParam == pszW7StartBtnSize &&
@@ -3897,7 +3921,7 @@ static BOOL LaunchEmptySpaceFunction(int nFunction, LONG_PTR lpMMTaskbarLongPtr)
 			HWND hImmersiveWorkerWnd = GetWindows10ImmersiveWorkerWindow();
 			if(hImmersiveWorkerWnd)
 			{
-				WPARAM wHotkeyIdentifier = DO2(0, 0 /* omitted from public code */);
+				WPARAM wHotkeyIdentifier = DO9(0, , , , 47, , , , 45);
 				PostMessage(hImmersiveWorkerWnd, WM_HOTKEY, wHotkeyIdentifier, MAKELPARAM(MOD_ALT | MOD_CONTROL, VK_TAB));
 			}
 		}
@@ -4046,15 +4070,15 @@ static HWND GetWindows10ImmersiveWorkerWindow(void)
 	if(!lpApplicationManagerDesktopShellWindow)
 		return NULL;
 
-	LONG_PTR lpImmersiveShellHookService = *(LONG_PTR *)(lpApplicationManagerDesktopShellWindow + 0 /* omitted from public code */);
+	LONG_PTR lpImmersiveShellHookService = *(LONG_PTR *)(lpApplicationManagerDesktopShellWindow + DO9_3264(0, 0, ,, ,, ,, 0x10, 0x20, ,, ,, ,, 0x14, 0x28));
 	if(!lpImmersiveShellHookService)
 		return NULL;
 
-	LONG_PTR lpImmersiveWindowMessageService = *(LONG_PTR *)(lpImmersiveShellHookService + 0 /* omitted from public code */);
+	LONG_PTR lpImmersiveWindowMessageService = *(LONG_PTR *)(lpImmersiveShellHookService + DO10_3264(0, 0, ,, ,, ,, 0x88, 0xE0, ,, ,, ,, 0xA0, 0x108, 0x98, 0x100));
 	if(!lpImmersiveWindowMessageService)
 		return NULL;
 
-	return *(HWND *)(lpImmersiveWindowMessageService + 0 /* omitted from public code */);
+	return *(HWND *)(lpImmersiveWindowMessageService + DO10_3264(0, 0, ,, ,, ,, 0x4C, 0x80, ,, 0x50, 0x88, ,, 0x58, 0x98, 0x54, 0x90));
 }
 
 static void ShortcutTaskbarActiveItemFunction(int nFunction)

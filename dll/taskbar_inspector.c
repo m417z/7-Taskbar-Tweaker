@@ -64,7 +64,7 @@ static POINT ptRefreshOrigin;
 static BOOL bHooksEnabled;
 static BOOL bNewButton;
 static HDPA hNewButtonDpa;
-static int hook_proc_call_counter;
+static int nHookProcCallCounter;
 static BOOL bHookCloseInspector;
 
 static DWORD WINAPI InspectorThread(void *pParameter);
@@ -416,7 +416,7 @@ static LRESULT CALLBACK DlgInspectorProc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 
 			bHooksEnabled = FALSE;
 
-			if(hook_proc_call_counter > 0)
+			if(nHookProcCallCounter > 0)
 			{
 				// Inspector will be closed when the DPA hook processing is done
 				bHookCloseInspector = TRUE;
@@ -760,7 +760,7 @@ static void AddButtonToList(HWND hListWnd, int list_index, HIMAGELIST hImageList
 	switch(InternalGetWindowText(hButtonWnd, szBuffer, 256))
 	{
 	case 0:
-		lvi.pszText = LoadStrFromRsrc(IDS_NOTITLE);
+		lvi.pszText = (LPWSTR)LoadStrFromRsrc(IDS_NOTITLE);
 		break;
 
 	case 255:
@@ -837,7 +837,7 @@ static BOOL ListUpdateWindowItem(HWND hListWnd, HIMAGELIST hImageList, LVITEM *p
 	switch(InternalGetWindowText(hButtonWnd, szBuffer, 256))
 	{
 	case 0:
-		lvi.pszText = LoadStrFromRsrc(IDS_NOTITLE);
+		lvi.pszText = (LPWSTR)LoadStrFromRsrc(IDS_NOTITLE);
 		break;
 
 	case 255:
@@ -1098,7 +1098,7 @@ static BOOL AppIdPopupMenu(HWND hWnd, HWND hListWnd, int nSelectedIndex, int x, 
 	int nListValue;
 	BOOL bRandomGroup;
 	int nAppidList;
-	WCHAR *pszNever, *pszAlways;
+	const WCHAR *pszNever, *pszAlways;
 	WCHAR szMenuText[1024 + 1]; // safe for wsprintf
 	BOOL bMenuResult;
 	int n;
@@ -1769,7 +1769,7 @@ void InspectorAfterDPA_Create(int cItemGrow, HDPA hRet)
 	if(!bHooksEnabled)
 		return;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	if(bNewButton)
 	{
@@ -1777,8 +1777,8 @@ void InspectorAfterDPA_Create(int cItemGrow, HDPA hRet)
 		bNewButton = FALSE;
 	}
 
-	hook_proc_call_counter--;
-	if(hook_proc_call_counter == 0 && bHookCloseInspector)
+	nHookProcCallCounter--;
+	if(nHookProcCallCounter == 0 && bHookCloseInspector)
 	{
 		SendMessage(hInspWnd, UWM_INSP_FINALLYCLOSE, 0, 0);
 		bHookCloseInspector = FALSE;
@@ -1790,7 +1790,7 @@ void InspectorAfterDPA_InsertPtr(HDPA pdpa, int index, void *p, void *pRet)
 	if(!bHooksEnabled)
 		return;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	DPA_HOOK_PARAM dpa_hook_param;
 	HDPA hButtonGroupsDpa;
@@ -1864,8 +1864,8 @@ void InspectorAfterDPA_InsertPtr(HDPA pdpa, int index, void *p, void *pRet)
 		}
 	}
 
-	hook_proc_call_counter--;
-	if(hook_proc_call_counter == 0 && bHookCloseInspector)
+	nHookProcCallCounter--;
+	if(nHookProcCallCounter == 0 && bHookCloseInspector)
 	{
 		SendMessage(hInspWnd, UWM_INSP_FINALLYCLOSE, 0, 0);
 		bHookCloseInspector = FALSE;
@@ -1877,7 +1877,7 @@ void InspectorBeforeDPA_DeletePtr(HDPA pdpa, int index)
 	if(!bHooksEnabled)
 		return;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	DPA_HOOK_PARAM dpa_hook_param;
 	HDPA hButtonGroupsDpa;
@@ -1922,8 +1922,8 @@ void InspectorBeforeDPA_DeletePtr(HDPA pdpa, int index)
 		}
 	}
 
-	hook_proc_call_counter--;
-	if(hook_proc_call_counter == 0 && bHookCloseInspector)
+	nHookProcCallCounter--;
+	if(nHookProcCallCounter == 0 && bHookCloseInspector)
 	{
 		SendMessage(hInspWnd, UWM_INSP_FINALLYCLOSE, 0, 0);
 		bHookCloseInspector = FALSE;

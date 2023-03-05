@@ -1,3 +1,18 @@
 # 7+ Taskbar Tweaker
 
-This repository contains most of the source code of 7+ Taskbar Tweaker. The published version is fully functional on Windows 7, but is not functional on newer Windows versions due to omitted offsets. Some other boring functionality, such as the update checking mechanism, was omitted as well. Code which was omitted from the public source code has the ["omitted from public code"](https://github.com/m417z/7-Taskbar-Tweaker/search?q="omitted+from+public+code"&unscoped_q="omitted+from+public+code") comment near it.
+7+ Taskbar Tweaker allows you to configure various aspects of the Windows
+taskbar. Most of the configuration options it provides can’t be tweaked using
+the taskbar properties or the registry.
+
+The tweaker is designed for Windows 7, Windows 8, and Windows 10. Windows 11
+isn't supported (See the notice on [this
+page](https://ramensoftware.com/7-taskbar-tweaker) for more details).
+
+![Screenshot](https://tweaker.ramensoftware.com/images/7-taskbar-tweaker.png)
+
+## Links
+
+* [Homepage](https://tweaker.ramensoftware.com/)
+* [Discussion](https://ramensoftware.com/7-taskbar-tweaker)
+* [Download](https://ramensoftware.com/downloads/7tt_setup.exe)
+* [News](https://ramensoftware.com/tag/7-taskbar-tweaker)

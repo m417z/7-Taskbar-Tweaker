@@ -8,7 +8,7 @@
 extern DWORD dwTaskbarThreadId;
 
 static void *pDPA_Create, *pDPA_InsertPtr, *pDPA_DeletePtr;
-static volatile int hook_proc_call_counter;
+static volatile LONG nHookProcCallCounter;
 
 static HDPA WINAPI DPA_CreateHook(int cItemGrow);
 static void *WINAPI DPA_InsertPtrHook(HDPA pdpa, int index, void *p);
@@ -50,7 +50,7 @@ BOOL DPAFuncHook_Exit()
 
 void DPAFuncHook_WaitTillDone()
 {
-	while(hook_proc_call_counter > 0)
+	while(nHookProcCallCounter > 0)
 		Sleep(10);
 }
 
@@ -58,14 +58,14 @@ static HDPA WINAPI DPA_CreateHook(int cItemGrow)
 {
 	HDPA hRet;
 
-	InterlockedIncrement((long *)&hook_proc_call_counter);
+	InterlockedIncrement(&nHookProcCallCounter);
 
 	hRet = ((HDPA(WINAPI *)(int))pDPA_Create)(cItemGrow);
 
 	if(GetCurrentThreadId() == dwTaskbarThreadId)
 		InspectorAfterDPA_Create(cItemGrow, hRet);
 
-	InterlockedDecrement((long *)&hook_proc_call_counter);
+	InterlockedDecrement(&nHookProcCallCounter);
 
 	return hRet;
 }
@@ -74,7 +74,7 @@ static void *WINAPI DPA_InsertPtrHook(HDPA pdpa, int index, void *p)
 {
 	void *pRet;
 
-	InterlockedIncrement((long *)&hook_proc_call_counter);
+	InterlockedIncrement(&nHookProcCallCounter);
 
 	pRet = ((void *(WINAPI *)(HDPA, int, void *))pDPA_InsertPtr)(pdpa, index, p);
 
@@ -84,7 +84,7 @@ static void *WINAPI DPA_InsertPtrHook(HDPA pdpa, int index, void *p)
 		ComFuncVirtualDesktopFixAfterDPA_InsertPtr(pdpa, index, p, pRet);
 	}
 
-	InterlockedDecrement((long *)&hook_proc_call_counter);
+	InterlockedDecrement(&nHookProcCallCounter);
 
 	return pRet;
 }
@@ -93,14 +93,14 @@ static void *WINAPI DPA_DeletePtrHook(HDPA pdpa, int index)
 {
 	void *pRet;
 
-	InterlockedIncrement((long *)&hook_proc_call_counter);
+	InterlockedIncrement(&nHookProcCallCounter);
 
 	if(GetCurrentThreadId() == dwTaskbarThreadId)
 		InspectorBeforeDPA_DeletePtr(pdpa, index);
 
 	pRet = ((void *(WINAPI *)(HDPA, int))pDPA_DeletePtr)(pdpa, index);
 
-	InterlockedDecrement((long *)&hook_proc_call_counter);
+	InterlockedDecrement(&nHookProcCallCounter);
 
 	return pRet;
 }

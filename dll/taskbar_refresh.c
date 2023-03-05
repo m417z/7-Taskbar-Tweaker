@@ -37,7 +37,7 @@ static volatile BOOL bRefreshHardcoreRunning;
 static BOOL bRefreshAgain;
 static REFRESH_HARDCORE_PARAM *gp_refresh_param;
 static LONG_PTR *pMainTaskListAnimationManager;
-static ANIMATION_MANAGER_ITEM *lpSeconadryTaskListAnimationManagers;
+static ANIMATION_MANAGER_ITEM *lpSecondaryTaskListAnimationManagers;
 static volatile HANDLE hDoneEvent;
 
 BOOL RefreshTaskbarHardcore_Init()
@@ -109,7 +109,7 @@ static BOOL RefreshTaskbarHardcore_Begin()
 		return FALSE;
 	}
 
-	DisableTaskbarsAnimation(&pMainTaskListAnimationManager, &lpSeconadryTaskListAnimationManagers);
+	DisableTaskbarsAnimation(&pMainTaskListAnimationManager, &lpSecondaryTaskListAnimationManagers);
 	EnableTaskbars(FALSE);
 
 	InspectorBeforeTaskbarRefresh();
@@ -381,7 +381,7 @@ static void SyncWndDestroyed()
 		HeapFree(GetProcessHeap(), 0, gp_refresh_param);
 
 		EnableTaskbars(TRUE);
-		RestoreTaskbarsAnimation(pMainTaskListAnimationManager, lpSeconadryTaskListAnimationManagers);
+		RestoreTaskbarsAnimation(pMainTaskListAnimationManager, lpSecondaryTaskListAnimationManagers);
 
 		InspectorAfterTaskbarRefresh();
 

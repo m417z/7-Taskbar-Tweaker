@@ -5,7 +5,7 @@
 
 static MODULEINFO ExplorerFrameInfo;
 static MODULEINFO Shell32Info;
-static volatile int nHookCallCounter;
+static volatile LONG nHookCallCounter;
 
 static void **ppPropertyStoreSetValue;
 POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prPropertyStoreSetValue);

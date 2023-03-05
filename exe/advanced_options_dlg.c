@@ -14,9 +14,9 @@
 #define RCMENU_DELETE    40004
 
 typedef struct {
-	WCHAR *pszSectionName;
+	const WCHAR *pszSectionName;
 	UINT uTabNameResId;
-	WCHAR *pszHelpFileSection;
+	const WCHAR *pszHelpFileSection;
 } SECTION_DATA;
 
 typedef struct {
@@ -66,17 +66,17 @@ static BOOL OnDestroy(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, DIALOG
 
 // Functions
 static BOOL InitSectionTabs(HWND hWnd);
-static BOOL InitListView(HWND hListViewWnd, WCHAR *pszSectionName);
+static BOOL InitListView(HWND hListViewWnd, const WCHAR *pszSectionName);
 static void DestroySectionTabs(HWND hWnd);
 static BOOL ListViewRightClick(HWND hWnd, HWND hListWnd, int x_pos, int y_pos);
 static void NewListViewItem(HWND hListViewWnd);
 static void DeleteSelectedListViewItems(HWND hListViewWnd);
 static void SetListViewModified(HWND hWnd, HWND hListViewWnd);
 static BOOL ApplyChanges(HWND hWnd, UINT uNotifyMsg);
-static BOOL ApplyListView(HWND hListViewWnd, WCHAR *pszSectionName);
-static BOOL ShowHelpSection(HWND hWnd, WCHAR *pszHelpSection);
-static BOOL ShowHelpSectionOfLang(HWND hWnd, WCHAR *pszHelpSection, LANGID langid);
-static UINT StringToUInt(WCHAR *pszStr);
+static BOOL ApplyListView(HWND hListViewWnd, const WCHAR *pszSectionName);
+static BOOL ShowHelpSection(HWND hWnd, const WCHAR *pszHelpSection);
+static BOOL ShowHelpSectionOfLang(HWND hWnd, const WCHAR *pszHelpSection, LANGID langid);
+static UINT StringToUInt(const WCHAR *pszStr);
 static void TrimText(WCHAR *pszText);
 static HDWP ChildRelativeDeferWindowPos(HDWP hWinPosInfo, HWND hWnd, int nIDDlgItem, int x, int y, int cx, int cy);
 
@@ -590,7 +590,7 @@ static BOOL InitSectionTabs(HWND hWnd)
 		TCITEM tcitem;
 
 		tcitem.mask = TCIF_TEXT;
-		tcitem.pszText = LoadStrFromRsrc(SectionData[i].uTabNameResId);
+		tcitem.pszText = (LPWSTR)LoadStrFromRsrc(SectionData[i].uTabNameResId);
 
 		TabCtrl_InsertItem(GetDlgItem(hWnd, IDC_ADV_TAB), i, &tcitem);
 	}
@@ -665,7 +665,7 @@ static BOOL InitSectionTabs(HWND hWnd)
 	return TRUE;
 }
 
-static BOOL InitListView(HWND hListViewWnd, WCHAR *pszSectionName)
+static BOOL InitListView(HWND hListViewWnd, const WCHAR *pszSectionName)
 {
 	RECT rcListView;
 	LVCOLUMN lvcolumn;
@@ -681,12 +681,12 @@ static BOOL InitListView(HWND hListViewWnd, WCHAR *pszSectionName)
 		rcListView.right -= GetSystemMetrics(SM_CXVSCROLL);
 
 	lvcolumn.mask = LVCF_TEXT | LVCF_WIDTH;
-	lvcolumn.pszText = LoadStrFromRsrc(IDS_ADVOPT_LIST_NAME);
+	lvcolumn.pszText = (LPWSTR)LoadStrFromRsrc(IDS_ADVOPT_LIST_NAME);
 	lvcolumn.cx = rcListView.right - rcListView.left - (20 + 6 * 10);
 	ListView_InsertColumn(hListViewWnd, 0, &lvcolumn);
 
 	lvcolumn.mask = LVCF_TEXT | LVCF_WIDTH;
-	lvcolumn.pszText = LoadStrFromRsrc(IDS_ADVOPT_LIST_DATA);
+	lvcolumn.pszText = (LPWSTR)LoadStrFromRsrc(IDS_ADVOPT_LIST_DATA);
 	lvcolumn.cx = (20 + 6 * 10);
 	ListView_InsertColumn(hListViewWnd, 1, &lvcolumn);
 
@@ -940,7 +940,7 @@ static BOOL ApplyChanges(HWND hWnd, UINT uNotifyMsg)
 	return TRUE;
 }
 
-static BOOL ApplyListView(HWND hListViewWnd, WCHAR *pszSectionName)
+static BOOL ApplyListView(HWND hListViewWnd, const WCHAR *pszSectionName)
 {
 	PS_SECTION section;
 	LSTATUS error;
@@ -977,7 +977,7 @@ static BOOL ApplyListView(HWND hListViewWnd, WCHAR *pszSectionName)
 	return error == ERROR_SUCCESS;
 }
 
-static BOOL ShowHelpSection(HWND hWnd, WCHAR *pszHelpSection)
+static BOOL ShowHelpSection(HWND hWnd, const WCHAR *pszHelpSection)
 {
 	LANGID langid;
 
@@ -992,7 +992,7 @@ static BOOL ShowHelpSection(HWND hWnd, WCHAR *pszHelpSection)
 	return ShowHelpSectionOfLang(hWnd, pszHelpSection, MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US));
 }
 
-static BOOL ShowHelpSectionOfLang(HWND hWnd, WCHAR *pszHelpSection, LANGID langid)
+static BOOL ShowHelpSectionOfLang(HWND hWnd, const WCHAR *pszHelpSection, LANGID langid)
 {
 	WCHAR szCommandLine[MAX_PATH * 2];
 
@@ -1015,7 +1015,7 @@ static BOOL ShowHelpSectionOfLang(HWND hWnd, WCHAR *pszHelpSection, LANGID langi
 	return !((int)(UINT_PTR)ShellExecute(hWnd, NULL, L"hh.exe", szCommandLine, NULL, SW_SHOWNORMAL) <= 32);
 }
 
-static UINT StringToUInt(WCHAR *pszStr)
+static UINT StringToUInt(const WCHAR *pszStr)
 {
 	int nInt = 0;
 

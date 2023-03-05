@@ -2,8 +2,8 @@
 
 // Version
 #define VERSION_MAJOR               5
-#define VERSION_MINOR               12
-#define VERSION_REVISION            3
+#define VERSION_MINOR               14
+#define VERSION_REVISION            1
 #define VERSION_BUILD               0
 
 // etc.

@@ -19,10 +19,10 @@
 BOOL CompareWindowsVersion(DWORD dwMajorVersion, DWORD dwMinorVersion);
 BOOL CompareWindowsBuildNumber(DWORD dwBuildNumber);
 BOOL RegisterDialogClass(LPCTSTR lpszClassName, HINSTANCE hInstance);
-WCHAR *LoadStrFromRsrc(UINT uStrId);
-UINT GetUniqueTempDir(TCHAR *pPrefixString, TCHAR *pDir);
-BOOL RemoveDirectoryOnReboot(TCHAR *pDir);
-BOOL SimpleCreateProcess(WCHAR *pApplicationName, WCHAR *pCommandLine, BOOL bWait);
+const WCHAR *LoadStrFromRsrc(UINT uStrId);
+UINT GetUniqueTempDir(const TCHAR *pPrefixString, TCHAR *pDir);
+BOOL RemoveDirectoryOnReboot(const TCHAR *pDir);
+BOOL SimpleCreateProcess(const WCHAR *pApplicationName, WCHAR *pCommandLine, BOOL bWait);
 BOOL CanAccessFolder(LPCTSTR szFolderName, DWORD dwGenericAccessRights);
 BOOL GetHelpFilePath(LANGID langid, const WCHAR *szLauncherPath, WCHAR *szHelpFilePath);
 

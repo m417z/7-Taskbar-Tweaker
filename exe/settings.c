@@ -7,7 +7,7 @@ TWEAKER_SETTINGS twSettings;
 BOOL LoadTweakerSettings()
 {
 	PS_SECTION section;
-	WCHAR *pSettingKeys[] = { L"updcheck", L"updcheckauto", L"hidetray", L"lefttrayfunc", L"language" };
+	const WCHAR *pSettingKeys[] = { L"updcheck", L"updcheckauto", L"hidetray", L"lefttrayfunc", L"language" };
 	int nValues[] = { 1, 0, 0, 0, 0 };
 	BOOL bError = FALSE;
 	int n;
@@ -51,7 +51,7 @@ BOOL LoadTweakerSettings()
 BOOL SaveTweakerSettings()
 {
 	PS_SECTION section;
-	WCHAR *pSettingKeys[] = { L"updcheck", L"updcheckauto", L"hidetray", L"lefttrayfunc", L"language" };
+	const WCHAR *pSettingKeys[] = { L"updcheck", L"updcheckauto", L"hidetray", L"lefttrayfunc", L"language" };
 	int nValues[] = {
 		twSettings.bCheckForUpdates ? 1 : 0,
 		twSettings.bAutoCheckForUpdates ? 1 : 0,

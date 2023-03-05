@@ -44,7 +44,7 @@ static BOOL ListRemove(APPID_LIST **ppList, WCHAR *pStr);
 static UINT ListCount(APPID_LIST *ppList);
 static void ListFree(APPID_LIST **ppList);
 
-static WCHAR *szSectionNames[AILISTS_COUNT] = {
+static const WCHAR *szSectionNames[AILISTS_COUNT] = {
 	L"Labeling",
 	L"Grouping",
 	L"Pinned grouping",

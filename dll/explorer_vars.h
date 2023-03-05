@@ -100,8 +100,10 @@ int *EV_MM_THUMBNAIL_LIST_FIRST_VISIBLE_INDEX(LONG_PTR lp);
 //////////////////////////////////////////////////////////////////////////
 // CTaskThumbnail
 
-#define EV_TASK_THUMBNAIL_SIZE                                       DO2_3264(0x7C, 0xB0, 0, 0 /* omitted from public code */)
+// DEF3264: CTaskThumbnail_CreateInstance
+#define EV_TASK_THUMBNAIL_SIZE                                       DO11_3264(0x7C, 0xB0, 0x74, 0xB0, ,, ,, 0x7C, 0xB8, ,, ,, ,, 0x80, 0xC0, ,, 0x88, 0xD0)
 
+// Maximum values for 32-bit and 64-bit of the DEF3264 above.
 #define EV_TASK_THUMBNAIL_SIZE_BUFFER_ALL_WIN_VERSIONS               DEF3264(0x88, 0xD0)
 
 //////////////////////////////////////////////////////////////////////////
@@ -177,15 +179,15 @@ size_t *EV_APP_VIEW_MGR_APP_ARRAY_SIZE(LONG_PTR lp);
 // Functions
 
 // CTaskBand::GetUserPreferences
-#define FUNC_CTaskBand_GetUserPreferences(plp)                       (plp[DO2(23, 0 /* omitted from public code */)])
+#define FUNC_CTaskBand_GetUserPreferences(plp)                       (plp[DO5(23, 7, , , 6)])
 
 // CTaskBand::IsHorizontal
-#define FUNC_CTaskBand_IsHorizontal(plp)                             (plp[DO2(25, 0 /* omitted from public code */)])
+#define FUNC_CTaskBand_IsHorizontal(plp)                             (plp[DO5(25, 13, , , 12)])
 
 ////////////////////
 
 // CTaskBand::ApplicationChanged(this, immersive_application, probably_flags, hwnd_unused)
-#define FUNC_CTaskBand_ApplicationChanged(plp)                       ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR, LONG_PTR, HWND))plp[DO2(0, 0 /* omitted from public code */)])
+#define FUNC_CTaskBand_ApplicationChanged(plp)                       ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR, LONG_PTR, HWND))plp[DO5(0, , , , 3)])
 
 ////////////////////
 
@@ -200,10 +202,10 @@ size_t *EV_APP_VIEW_MGR_APP_ARRAY_SIZE(LONG_PTR lp);
 ////////////////////
 
 // CTaskBand::ViewVirtualDesktopChanged(this, application_view)
-#define FUNC_CTaskBand_ViewVirtualDesktopChanged(plp)                ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR))plp[DO2(0, 0 /* omitted from public code */)])
+#define FUNC_CTaskBand_ViewVirtualDesktopChanged(plp)                ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR))plp[DO15(0, , , , 7, , , , , , , , , 9, 10)])
 
 // CTaskBand::CurrentVirtualDesktopChanged
-#define FUNC_CTaskBand_CurrentVirtualDesktopChanged(plp)             (plp[DO2(0, 0 /* omitted from public code */)])
+#define FUNC_CTaskBand_CurrentVirtualDesktopChanged(plp)             (plp[DO15(0, , , , 8, , , , , , , , , 10, 11)])
 
 ////////////////////
 
@@ -211,10 +213,10 @@ size_t *EV_APP_VIEW_MGR_APP_ARRAY_SIZE(LONG_PTR lp);
 #define FUNC_CTaskBand_GetIconId(plp)                                (plp[4])
 
 // CTaskBand::SwitchTo(this, task_item, true_means_bring_to_front_false_means_toggle_minimize_restore)
-#define FUNC_CTaskBand_SwitchTo(plp)                                 ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, BOOL))plp[DO2(7, 0 /* omitted from public code */)])
+#define FUNC_CTaskBand_SwitchTo(plp)                                 ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, BOOL))plp[DO5(7, , , , 6)])
 
 // CTaskBand::Launch(this, task_group, p_point, run_as_admin)
-#define FUNC_CTaskBand_Launch(plp)                                   ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, POINT *, BYTE))plp[DO2(8, 0 /* omitted from public code */)])
+#define FUNC_CTaskBand_Launch(plp)                                   ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, POINT *, BYTE))plp[DO5(8, , , , 7)])
 
 // Only Windows 7
 // CTaskBand::Launch(this, task_group)
@@ -222,19 +224,19 @@ size_t *EV_APP_VIEW_MGR_APP_ARRAY_SIZE(LONG_PTR lp);
 
 // Since Windows 8.1.1
 // CTaskBand::CloseItem(this, task_item)
-#define FUNC_CTaskBand_CloseItem(plp)                                ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *))plp[DO2(0, 0 /* omitted from public code */)])
+#define FUNC_CTaskBand_CloseItem(plp)                                ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *))plp[DO5(0, 0, 0, 15, 14)])
 
 // Until Windows 10
 // CTaskBand::GetIconSize
-#define FUNC_CTaskBand_GetIconSize(plp)                              (plp[DO2(0, 0 /* omitted from public code */)])
+#define FUNC_CTaskBand_GetIconSize(plp)                              (plp[DO4(0, 0, 20, 23)])
 
 ////////////////////
 
 // CSecondaryTaskBand::GetUserPreferences
-#define FUNC_CSecondaryTaskBand_GetUserPreferences(plp)              (plp[DO2(7, 0 /* omitted from public code */)])
+#define FUNC_CSecondaryTaskBand_GetUserPreferences(plp)              (plp[DO5(7, , , , 6)])
 
 // CSecondaryTaskBand::IsHorizontal
-#define FUNC_CSecondaryTaskBand_IsHorizontal(plp)                    (plp[DO2(13, 0 /* omitted from public code */)])
+#define FUNC_CSecondaryTaskBand_IsHorizontal(plp)                    (plp[DO5(13, , , , 12)])
 
 ////////////////////
 
@@ -247,7 +249,7 @@ size_t *EV_APP_VIEW_MGR_APP_ARRAY_SIZE(LONG_PTR lp);
 #define FUNC_CTaskListWnd_GetStuckPlace(plp)                         (plp[4])
 
 // CTaskListWnd::ShowLivePreview(this, hWnd, uFlags)
-#define FUNC_CTaskListWnd_ShowLivePreview(plp)                       ((LONG_PTR(__stdcall *)(LONG_PTR, HWND, LONG_PTR))plp[DO2(18, 0 /* omitted from public code */)])
+#define FUNC_CTaskListWnd_ShowLivePreview(plp)                       ((LONG_PTR(__stdcall *)(LONG_PTR, HWND, LONG_PTR))plp[DO5(18, , , , 16)])
 
 ////////////////////
 
@@ -255,40 +257,48 @@ size_t *EV_APP_VIEW_MGR_APP_ARRAY_SIZE(LONG_PTR lp);
 #define FUNC_CTaskListWnd_Initialize(plp)                            (plp[3])
 
 // CTaskListWnd::TaskCreated
-#define FUNC_CTaskListWnd_TaskCreated(plp)                           (plp[DO2(3, 0 /* omitted from public code */)])
+#define FUNC_CTaskListWnd_TaskCreated(plp)                           (plp[DO5(3, 4, , , 5)])
 
 // CTaskListWnd::ActivateTask
-#define FUNC_CTaskListWnd_ActivateTask(plp)                          (plp[DO2(5, 0 /* omitted from public code */)])
+#define FUNC_CTaskListWnd_ActivateTask(plp)                          (plp[DO16(5, 6, , , 7, , , , , , , , 9, , , 8)])
 
 // Until Windows 10 R1
 // CTaskListWnd::TaskDestroyed
-#define FUNC_CTaskListWnd_TaskDestroyed(plp)                         (plp[DO2(7, 0 /* omitted from public code */)])
+#define FUNC_CTaskListWnd_TaskDestroyed(plp)                         (plp[DO5(7, 8, , , 9)])
 
 // CTaskListWnd::TaskInclusionChanged
-#define FUNC_CTaskListWnd_TaskInclusionChanged(plp)                  (plp[DO2(0, 0 /* omitted from public code */)])
+#define FUNC_CTaskListWnd_TaskInclusionChanged(plp)                  (plp[DO16(0, , , , 13, , , , , , , , 15, , , 14)])
 
 // CTaskListWnd::GetButtonHeight
-#define FUNC_CTaskListWnd_GetButtonHeight(plp)                       (plp[DO2(11, 0 /* omitted from public code */)])
+#define FUNC_CTaskListWnd_GetButtonHeight(plp)                       (plp[DO16(11, 14, , , 15, , , , , , , , 17, , , 16)])
 
 // CTaskListWnd::AutoSize(this)
-#define FUNC_CTaskListWnd_AutoSize(plp)                              ((LONG_PTR(__stdcall *)(LONG_PTR))plp[DO2(15, 0 /* omitted from public code */)])
+#define FUNC_CTaskListWnd_AutoSize(plp)                              ((LONG_PTR(__stdcall *)(LONG_PTR))plp[DO16(15, 18, , , 19, , , , , , , , 21, , , 20)])
 
 // CTaskListWnd::DismissHoverUI(this, hide_without_animation)
-#define FUNC_CTaskListWnd_DismissHoverUI(plp)                        ((LONG_PTR(__stdcall *)(LONG_PTR, BOOL))plp[DO2(27, 0 /* omitted from public code */)])
+#define FUNC_CTaskListWnd_DismissHoverUI(plp)                        ((LONG_PTR(__stdcall *)(LONG_PTR, BOOL))plp[DO16( \
+                                                                         27, 41, , 47, 50, 51, 55, , , 53, , \
+                                                                         nExplorerQFE <= 1500 ? 53 : (nExplorerQFE <= 1533 ? 54 : 55), \
+                                                                         nExplorerQFE <= 928 ? 55 : (nExplorerQFE <= 964 ? 56 : 57), \
+                                                                         57, 58, 57)])
 
 // CTaskListWnd::ShowJumpView
-#define FUNC_CTaskListWnd_ShowJumpView(plp)                          (plp[DO2(30, 0 /* omitted from public code */)])
+#define FUNC_CTaskListWnd_ShowJumpView(plp)                          (plp[DO16( \
+                                                                         30, 44, , 50, 53, 54, 58, , , 56, , \
+                                                                         nExplorerQFE <= 1500 ? 56 : (nExplorerQFE <= 1533 ? 57 : 58), \
+                                                                         nExplorerQFE <= 928 ? 58 : (nExplorerQFE <= 964 ? 59 : 60), \
+                                                                         60, 61, 60)])
 
 ////////////////////
 
 // Until Windows 10 R1
 // CTaskListWnd::OnDestinationMenuDismissed
-#define FUNC_CTaskListWnd_OnDestinationMenuDismissed(plp)            (plp[DO2(8, 0 /* omitted from public code */)])
+#define FUNC_CTaskListWnd_OnDestinationMenuDismissed(plp)            (plp[DO2(8, 5)])
 
 ////////////////////
 
 // CTaskListWndMulti::TaskDestroyed(this, ITaskGroup *, ITaskItem *)
-#define FUNC_CTaskListWndMulti_TaskDestroyed(plp)                    ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, LONG_PTR *))plp[DO2(0, 0 /* omitted from public code */)])
+#define FUNC_CTaskListWndMulti_TaskDestroyed(plp)                    ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, LONG_PTR *))plp[DO16(0, , , , 9, , , , , , , , 11, , , 10)])
 
 ////////////////////
 
@@ -303,7 +313,7 @@ size_t *EV_APP_VIEW_MGR_APP_ARRAY_SIZE(LONG_PTR lp);
 
 // Until Windows 10
 // CTaskListThumbnailWnd::ThumbIndexFromPoint(this, ppt)
-#define FUNC_CTaskListThumbnailWnd_ThumbIndexFromPoint(plp)          ((int(__stdcall *)(LONG_PTR, POINT *))plp[DO2(13, 0 /* omitted from public code */)])
+#define FUNC_CTaskListThumbnailWnd_ThumbIndexFromPoint(plp)          ((int(__stdcall *)(LONG_PTR, POINT *))plp[DO2(13, 14)])
 
 ////////////////////
 
@@ -313,21 +323,21 @@ size_t *EV_APP_VIEW_MGR_APP_ARRAY_SIZE(LONG_PTR lp);
 ////////////////////
 
 // CWindowTaskItem::SetWindow(this, new_hwnd)
-#define FUNC_CWindowTaskItem_SetWindow(plp)                          ((LONG_PTR(__stdcall *)(LONG_PTR, HWND))plp[DO2(18, 0 /* omitted from public code */)])
+#define FUNC_CWindowTaskItem_SetWindow(plp)                          ((LONG_PTR(__stdcall *)(LONG_PTR, HWND))plp[DO7(18, , , 17, 13, , 11)])
 
 // CWindowTaskItem::GetWindow(this)
-#define FUNC_CWindowTaskItem_GetWindow(plp)                          ((HWND(__stdcall *)(LONG_PTR))plp[DO2(19, 0 /* omitted from public code */)])
+#define FUNC_CWindowTaskItem_GetWindow(plp)                          ((HWND(__stdcall *)(LONG_PTR))plp[DO7(19, , , 18, 14, , 12)])
 
 // CWindowTaskItem::IsImmersive(this)
-#define FUNC_CWindowTaskItem_IsImmersive(plp)                        ((BYTE(__stdcall *)(LONG_PTR))plp[DO2(0, 0 /* omitted from public code */)])
+#define FUNC_CWindowTaskItem_IsImmersive(plp)                        ((BYTE(__stdcall *)(LONG_PTR))plp[DO7(0, , , , 58, , 56)])
 
 ////////////////////
 
 // CTaskItem::IsVisibleOnCurrentVirtualDesktop(this)
-#define FUNC_CTaskItem_IsVisibleOnCurrentVirtualDesktop(plp)         ((BYTE(__stdcall *)(LONG_PTR))plp[DO2(0, 0 /* omitted from public code */)])
+#define FUNC_CTaskItem_IsVisibleOnCurrentVirtualDesktop(plp)         ((BYTE(__stdcall *)(LONG_PTR))plp[DO16(0, , , , 60, , 58, , , , 60, , , , , 58)])
 
 // CTaskItem::SetVisibleOnCurrentVirtualDesktop(this, bool)
-#define FUNC_CTaskItem_SetVisibleOnCurrentVirtualDesktop(plp)        ((LONG_PTR(__stdcall *)(LONG_PTR, BYTE))plp[DO2(0, 0 /* omitted from public code */)])
+#define FUNC_CTaskItem_SetVisibleOnCurrentVirtualDesktop(plp)        ((LONG_PTR(__stdcall *)(LONG_PTR, BYTE))plp[DO16(0, , , , 61, , 59, , , , 61, , , , , 59)])
 
 ////////////////////
 
@@ -346,41 +356,41 @@ size_t *EV_APP_VIEW_MGR_APP_ARRAY_SIZE(LONG_PTR lp);
 #define FUNC_CTaskGroup_GroupMenuCommand_w8(plp)                     ((LONG_PTR(__stdcall *)(LONG_PTR, HMONITOR, WPARAM))plp[30])
 
 // CTaskGroup::GroupMenuCommand(this, ITaskItemFilter, wCommand)
-#define FUNC_CTaskGroup_GroupMenuCommand(plp)                        ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR, WPARAM))plp[DO2(0, 0 /* omitted from public code */)])
+#define FUNC_CTaskGroup_GroupMenuCommand(plp)                        ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR, WPARAM))plp[DO11(0, , , , 26, , , , , , 27)])
 
 // CTaskGroup::IsImmersiveGroup(this)
-#define FUNC_CTaskGroup_IsImmersiveGroup(plp)                        ((BYTE(__stdcall *)(LONG_PTR))plp[DO2(0, 0 /* omitted from public code */)])
+#define FUNC_CTaskGroup_IsImmersiveGroup(plp)                        ((BYTE(__stdcall *)(LONG_PTR))plp[DO11(0, , , , 41, , 39, , , , 40)])
 
 ////////////////////
 
 // CTaskBtnGroup::RemoveTaskItem
-#define FUNC_CTaskBtnGroup_RemoveTaskItem(plp)                       (plp[DO2(8, 0 /* omitted from public code */)])
+#define FUNC_CTaskBtnGroup_RemoveTaskItem(plp)                       (plp[DO5(8, , , , 9)])
 
 // CTaskBtnGroup::GetIdealSpan
-#define FUNC_CTaskBtnGroup_GetIdealSpan(plp)                         (plp[DO2(10, 0 /* omitted from public code */)])
+#define FUNC_CTaskBtnGroup_GetIdealSpan(plp)                         (plp[DO5(10, 12, , , 13)])
 
 // CTaskBtnGroup::GetLocation(this, task_item, p_rect)
-#define FUNC_CTaskBtnGroup_GetLocation(plp)                          ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, RECT *))plp[DO2(13, 0 /* omitted from public code */)])
+#define FUNC_CTaskBtnGroup_GetLocation(plp)                          ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, RECT *))plp[DO5(13, , , , 14)])
 
 // CTaskBtnGroup::SetLocation
-#define FUNC_CTaskBtnGroup_SetLocation(plp)                          (plp[DO2(14, 0 /* omitted from public code */)])
+#define FUNC_CTaskBtnGroup_SetLocation(plp)                          (plp[DO5(14, 16, , , 17)])
 
 // CTaskBtnGroup::Render
-#define FUNC_CTaskBtnGroup_Render(plp)                               (plp[DO2(18, 0 /* omitted from public code */)])
+#define FUNC_CTaskBtnGroup_Render(plp)                               (plp[DO5(18, 20, , , 21)])
 
 // CTaskBtnGroup::CanGlom
-#define FUNC_CTaskBtnGroup_CanGlom(plp)                              (plp[DO2(20, 0 /* omitted from public code */)])
+#define FUNC_CTaskBtnGroup_CanGlom(plp)                              (plp[DO5(20, 22, , , 23)])
 
 // CTaskBtnGroup::Glom
-#define FUNC_CTaskBtnGroup_Glom(plp)                                 ((LONG_PTR(__stdcall *)(LONG_PTR *, BOOL))plp[DO2(22, 0 /* omitted from public code */)])
+#define FUNC_CTaskBtnGroup_Glom(plp)                                 ((LONG_PTR(__stdcall *)(LONG_PTR *, BOOL))plp[DO5(22, 24, , , 25)])
 
 // Until Windows 10
 // CTaskBtnGroup::HandleGroupHotTracking
-#define FUNC_CTaskBtnGroup_HandleGroupHotTracking(plp)               (plp[DO2(28, 0 /* omitted from public code */)])
+#define FUNC_CTaskBtnGroup_HandleGroupHotTracking(plp)               (plp[DO2(28, 30)])
 
 // Until Windows 10
 // CTaskBtnGroup::HandleGroupHotTrackOut
-#define FUNC_CTaskBtnGroup_HandleGroupHotTrackOut(plp)               (plp[DO2(29, 0 /* omitted from public code */)])
+#define FUNC_CTaskBtnGroup_HandleGroupHotTrackOut(plp)               (plp[DO2(29, 31)])
 
 // CTaskBtnGroup::StartItemAnimation
 #define FUNC_CTaskBtnGroup_StartItemAnimation(plp)                   (plp[32])
@@ -389,7 +399,7 @@ size_t *EV_APP_VIEW_MGR_APP_ARRAY_SIZE(LONG_PTR lp);
 #define FUNC_CTaskBtnGroup_HasItemAnimation(plp)                     (plp[33])
 
 // CTaskBtnGroup::ShouldShowToolTip
-#define FUNC_CTaskBtnGroup_ShouldShowToolTip(plp)                    (plp[DO2(34, 0 /* omitted from public code */)])
+#define FUNC_CTaskBtnGroup_ShouldShowToolTip(plp)                    (plp[DO2(34, 36)])
 
 // CTaskBtnGroup::GetNumStacks(this)
-#define FUNC_CTaskBtnGroup_GetNumStacks(plp)                         ((int(__stdcall *)(LONG_PTR))plp[DO2(41, 0 /* omitted from public code */)])
+#define FUNC_CTaskBtnGroup_GetNumStacks(plp)                         ((int(__stdcall *)(LONG_PTR))plp[DO5(41, , , , 40)])

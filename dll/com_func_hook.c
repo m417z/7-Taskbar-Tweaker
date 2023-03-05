@@ -157,7 +157,7 @@ static BOOL bTaskGroupFunctionsHooked;
 static BOOL bTaskItemFunctionsHooked;
 static BOOL bTaskBtnGroupFunctionsHooked;
 static BOOL bSecondaryTaskbarFunctionsHooked;
-static volatile int hook_proc_call_counter;
+static volatile int nHookProcCallCounter;
 
 // Temporary hooks
 POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prDrawThemeBackground);
@@ -176,8 +176,8 @@ static LONG_PTR *right_drag_attach_group;
 static DWORD dwUserPrefSetBits, dwUserPrefRemoveBits;
 static BOOL bThumbNoDismiss;
 static HWND hCreatedThumb, hCreatedThumbParent;
-static int decombine_without_labels_hack; // <= Windows 8.1.1: The magic happens in: CTaskBtnGroup::_DrawRegularButton
-static int selective_combining_hack; // <= Windows 8.1.1: The magic happens in: CTaskListWnd::_CheckNeedScrollbars
+static int decombine_without_labels_hack; // <= Windows 8.1.1: The magic happens in: CTaskBtnGroup::_DrawRegularButton; Windows 10: we check assembly
+static int selective_combining_hack; // <= Windows 8.1.1: The magic happens in: CTaskListWnd::_CheckNeedScrollbars; Windows 10: we check assembly
 static int nSwitchToOption;
 static LONG_PTR lpSwitchToMMTaskListLongPtr;
 static BOOL bInMouseMove;
@@ -313,7 +313,7 @@ void ComFuncHook_Exit()
 
 void ComFuncHook_WaitTillDone()
 {
-	while(hook_proc_call_counter > 0)
+	while(nHookProcCallCounter > 0)
 		Sleep(10);
 }
 
@@ -342,7 +342,7 @@ static BOOL HookFunctions()
 		return FALSE;
 
 	// CTaskBand::GetUserPreferences, IsHorizontal
-	plp = *(LONG_PTR **)(lpTaskSwLongPtr + DO2_3264(0x20, 0x40, 0, 0 /* omitted from public code */));
+	plp = *(LONG_PTR **)(lpTaskSwLongPtr + DO4_3264(0x20, 0x40, 0x24, 0x48, ,, 0x28, 0x50));
 
 	ppGetUserPreferences = (void **)&FUNC_CTaskBand_GetUserPreferences(plp);
 	if(!CreateEnableHook(ppGetUserPreferences, GetUserPreferencesHook, &pGetUserPreferences, &prGetUserPreferences))
@@ -353,7 +353,7 @@ static BOOL HookFunctions()
 		return FALSE;
 
 	// CTaskBand::GetIconId, SwitchTo, GetIconSize
-	plp = *(LONG_PTR **)(lpTaskSwLongPtr + DO2_3264(0x20, 0x40, 0, 0 /* omitted from public code */));
+	plp = *(LONG_PTR **)(lpTaskSwLongPtr + DO4_3264(0x20, 0x40, ,, ,, 0x24, 0x48));
 
 	if(nWinVersion >= WIN_VERSION_10_T1)
 	{
@@ -406,7 +406,7 @@ static BOOL HookFunctions()
 			return FALSE;
 
 		// CTaskBand::Exec
-		plp = *(LONG_PTR **)(lpTaskSwLongPtr + 0 /* omitted from public code */);
+		plp = *(LONG_PTR **)(lpTaskSwLongPtr + DO5_3264(0, 0, ,, ,, ,, 0x20, 0x40));
 
 		ppTaskBandExec = (void **)&FUNC_CTaskBand_Exec(plp);
 		if(!CreateEnableHook(ppTaskBandExec, TaskBandExecHook, &pTaskBandExec, &prTaskBandExec))
@@ -499,7 +499,7 @@ static BOOL HookFunctions()
 	if(nWinVersion <= WIN_VERSION_10_T2)
 	{
 		// CTaskListWnd::OnDestinationMenuDismissed
-		plp = *(LONG_PTR **)(lpTaskListLongPtr + DO2_3264(0x30, 0x60, 0, 0 /* omitted from public code */));
+		plp = *(LONG_PTR **)(lpTaskListLongPtr + DO5_3264(0x30, 0x60, ,, ,, ,, 0x2C, 0x58));
 
 		ppOnDestinationMenuDismissed = (void **)&FUNC_CTaskListWnd_OnDestinationMenuDismissed(plp);
 		if(!CreateEnableHook(ppOnDestinationMenuDismissed, OnDestinationMenuDismissedHook, &pOnDestinationMenuDismissed, &prOnDestinationMenuDismissed))
@@ -521,7 +521,7 @@ static BOOL HookFunctions()
 	if(nWinVersion <= WIN_VERSION_811)
 	{
 		// CTaskListThumbnailWnd::GetThumbRectFromIndex, CTaskListThumbnailWnd::ThumbIndexFromPoint
-		plp = *(LONG_PTR **)(lpThumbnailLongPtr + DO2_3264(0x10, 0x20, 0, 0 /* omitted from public code */));
+		plp = *(LONG_PTR **)(lpThumbnailLongPtr + DO5_3264(0x10, 0x20, ,, ,, ,, 0x08, 0x10));
 
 		ppGetThumbRectFromIndex = (void **)&FUNC_CTaskListThumbnailWnd_GetThumbRectFromIndex(plp);
 		if(!CreateEnableHook(ppGetThumbRectFromIndex, GetThumbRectFromIndexHook, &pGetThumbRectFromIndex, &prGetThumbRectFromIndex))
@@ -533,7 +533,7 @@ static BOOL HookFunctions()
 	}
 
 	// CTaskListThumbnailWnd::DestroyThumbnail
-	plp = *(LONG_PTR **)(lpThumbnailLongPtr + DO2_3264(0x18, 0x30, 0, 0 /* omitted from public code */));
+	plp = *(LONG_PTR **)(lpThumbnailLongPtr + DO5_3264(0x18, 0x30, ,, ,, ,, 0x10, 0x20));
 
 	ppDestroyThumbnail = (void **)&FUNC_CTaskListThumbnailWnd_DestroyThumbnail(plp);
 	if(!CreateEnableHook(ppDestroyThumbnail, DestroyThumbnailHook, &pDestroyThumbnail, &prDestroyThumbnail))
@@ -890,7 +890,7 @@ static HRESULT __stdcall OleDragEnterHook(IDropTarget *This, IDataObject *pDataO
 	LONG_PTR lpMMTaskListLongPtr;
 	HRESULT hr;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	lpMMTaskListLongPtr = (LONG_PTR)This - DEF3264(0x24, 0x48);
 	if(IsMMTaskListLongPtr(lpMMTaskListLongPtr))
@@ -905,7 +905,7 @@ static HRESULT __stdcall OleDragEnterHook(IDropTarget *This, IDataObject *pDataO
 	else
 		hr = ((OLE_DRAG_ENTER_PROC *)pOleDragEnter)(This, pDataObj, grfKeyState, pt, pdwEffect);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return hr;
 }
@@ -915,7 +915,7 @@ static HRESULT __stdcall OleDragOverHook(IDropTarget *This, DWORD grfKeyState, P
 	LONG_PTR lpMMTaskListLongPtr;
 	HRESULT hr;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	lpMMTaskListLongPtr = (LONG_PTR)This - DEF3264(0x24, 0x48);
 	if(IsMMTaskListLongPtr(lpMMTaskListLongPtr))
@@ -938,7 +938,7 @@ static HRESULT __stdcall OleDragOverHook(IDropTarget *This, DWORD grfKeyState, P
 	else
 		hr = ((OLE_DRAG_OVER_PROC *)pOleDragOver)(This, grfKeyState, pt, pdwEffect);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return hr;
 }
@@ -948,7 +948,7 @@ static HRESULT __stdcall OleDropHook(IDropTarget *This, IDataObject *pDataObj, D
 	LONG_PTR lpMMTaskListLongPtr;
 	HRESULT hr;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	lpMMTaskListLongPtr = (LONG_PTR)This - DEF3264(0x24, 0x48);
 	if(IsMMTaskListLongPtr(lpMMTaskListLongPtr))
@@ -959,7 +959,7 @@ static HRESULT __stdcall OleDropHook(IDropTarget *This, IDataObject *pDataObj, D
 
 	hr = ((OLE_DROP_PROC *)pOleDrop)(This, pDataObj, grfKeyState, pt, pdwEffect);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return hr;
 }
@@ -968,13 +968,13 @@ static LONG_PTR __stdcall GetUserPreferencesHook(LONG_PTR var1, DWORD *pdwPrefer
 {
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, DWORD *))pGetUserPreferences)(var1, pdwPreferences);
 
 	*pdwPreferences = ManipulateUserPreferences(*pdwPreferences, _AddressOfReturnAddress());
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -983,7 +983,7 @@ static LONG_PTR __stdcall IsHorizontalHook(LONG_PTR this_ptr)
 {
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	if(nWinVersion <= WIN_VERSION_811)
 	{
@@ -996,7 +996,7 @@ static LONG_PTR __stdcall IsHorizontalHook(LONG_PTR this_ptr)
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR))pIsHorizontal)(this_ptr);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1007,7 +1007,7 @@ static LONG_PTR __stdcall GetIconIdHook(LONG_PTR this_ptr, LONG_PTR *task_group,
 
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	// If labels are visible, or for a decombined group, task_item is set,
 	// and each item gets its own icon. In this case we do nothing.
@@ -1037,7 +1037,7 @@ static LONG_PTR __stdcall GetIconIdHook(LONG_PTR this_ptr, LONG_PTR *task_group,
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, LONG_PTR *, LONG_PTR, LONG_PTR))pGetIconId)(this_ptr, task_group, task_item, var4, var5);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1048,7 +1048,7 @@ static LONG_PTR __stdcall SwitchToHook(LONG_PTR this_ptr, LONG_PTR var2, LONG_PT
 
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	if(nSwitchToOption)
 	{
@@ -1063,7 +1063,7 @@ static LONG_PTR __stdcall SwitchToHook(LONG_PTR this_ptr, LONG_PTR var2, LONG_PT
 		lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR, LONG_PTR *, BOOL))pSwitchTo)
 			(this_ptr, var2, task_item, bSwitchTo);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1074,7 +1074,7 @@ static LONG_PTR __stdcall SwitchToHook2(LONG_PTR this_ptr, LONG_PTR *task_item, 
 
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	if(nSwitchToOption)
 	{
@@ -1089,7 +1089,7 @@ static LONG_PTR __stdcall SwitchToHook2(LONG_PTR this_ptr, LONG_PTR *task_item, 
 		lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, BOOL))pSwitchTo)
 			(this_ptr, task_item, bSwitchTo);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1137,13 +1137,13 @@ static LONG_PTR __stdcall GetIconSizeHook(LONG_PTR var1, LONG_PTR var2)
 
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	GetIconSizeAndGetButtonHeightHack();
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR))pGetIconSize)(var1, var2);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1155,13 +1155,13 @@ static LONG_PTR __stdcall GetIconSizeHook2(LONG_PTR var1, LONG_PTR var2, LONG_PT
 
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	GetIconSizeAndGetButtonHeightHack();
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR, LONG_PTR))pGetIconSize)(var1, var2, var3);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1192,19 +1192,19 @@ static LONG_PTR __stdcall CurrentVirtualDesktopChangedHook(LONG_PTR this_ptr, LO
 
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	if(nOptionsEx[OPT_EX_VIRTUAL_DESKTOP_ORDER_FIX])
 	{
 		if(!bHadCurrentVirtualDesktopChangedAnimated)
 		{
 			LONG_PTR *pMainTaskListAnimationManager;
-			ANIMATION_MANAGER_ITEM *lpSeconadryTaskListAnimationManagers;
-			DisableTaskbarsAnimation(&pMainTaskListAnimationManager, &lpSeconadryTaskListAnimationManagers);
+			ANIMATION_MANAGER_ITEM *lpSecondaryTaskListAnimationManagers;
+			DisableTaskbarsAnimation(&pMainTaskListAnimationManager, &lpSecondaryTaskListAnimationManagers);
 
 			HideAllTaskbarItems();
 
-			RestoreTaskbarsAnimation(pMainTaskListAnimationManager, lpSeconadryTaskListAnimationManagers);
+			RestoreTaskbarsAnimation(pMainTaskListAnimationManager, lpSecondaryTaskListAnimationManagers);
 		}
 		else
 			bHadCurrentVirtualDesktopChangedAnimated = FALSE;
@@ -1212,7 +1212,7 @@ static LONG_PTR __stdcall CurrentVirtualDesktopChangedHook(LONG_PTR this_ptr, LO
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR, LONG_PTR))pCurrentVirtualDesktopChanged)(this_ptr, var2, var3);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1223,24 +1223,24 @@ static LONG_PTR __stdcall CurrentVirtualDesktopChangedAnimatedHook(LONG_PTR this
 
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	if(nOptionsEx[OPT_EX_VIRTUAL_DESKTOP_ORDER_FIX])
 	{
 		LONG_PTR *pMainTaskListAnimationManager;
-		ANIMATION_MANAGER_ITEM *lpSeconadryTaskListAnimationManagers;
-		DisableTaskbarsAnimation(&pMainTaskListAnimationManager, &lpSeconadryTaskListAnimationManagers);
+		ANIMATION_MANAGER_ITEM *lpSecondaryTaskListAnimationManagers;
+		DisableTaskbarsAnimation(&pMainTaskListAnimationManager, &lpSecondaryTaskListAnimationManagers);
 
 		HideAllTaskbarItems();
 
-		RestoreTaskbarsAnimation(pMainTaskListAnimationManager, lpSeconadryTaskListAnimationManagers);
+		RestoreTaskbarsAnimation(pMainTaskListAnimationManager, lpSecondaryTaskListAnimationManagers);
 
 		bHadCurrentVirtualDesktopChangedAnimated = TRUE;
 	}
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR, LONG_PTR))pCurrentVirtualDesktopChangedAnimated)(this_ptr, var2, var3);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1251,7 +1251,7 @@ static LONG_PTR __stdcall TaskBandExecHook(LONG_PTR this_ptr, GUID *pGuid, LONG_
 
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	// If called from BandSite_HandleDelayInitStuff -> CTrayBandSite::_BroadcastExec.
 	const char *IID_IDeskBand = "\x72\xE1\x0F\xEB\x3A\x1A\xD0\x11\x89\xB3\x00\xA0\xC9\x0A\x90\xAC";
@@ -1264,7 +1264,7 @@ static LONG_PTR __stdcall TaskBandExecHook(LONG_PTR this_ptr, GUID *pGuid, LONG_
 	else
 		lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, GUID *, LONG_PTR, LONG_PTR, LONG_PTR, LONG_PTR))pTaskBandExec)(this_ptr, pGuid, var3, var4, var5, var6);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1326,7 +1326,7 @@ static LONG_PTR __stdcall StartAnimationHook(LONG_PTR var1, void *pObject, int n
 	BOOL bNoAnimation;
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	bNoAnimation = FALSE;
 
@@ -1334,9 +1334,9 @@ static LONG_PTR __stdcall StartAnimationHook(LONG_PTR var1, void *pObject, int n
 	{
 		button_group = (LONG_PTR *)pObject;
 
-		if((int)button_group[DO2(6, 0 /* omitted from public code */)] == 2 && !nOptionsEx[OPT_EX_PINNED_UNGROUPED_ANIMATE_LAUNCH])
+		if((int)button_group[DO2(6, 8)] == 2 && !nOptionsEx[OPT_EX_PINNED_UNGROUPED_ANIMATE_LAUNCH])
 		{
-			task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
+			task_group = (LONG_PTR *)button_group[DO2(3, 4)];
 			pAppId = *EV_TASKGROUP_APPID(task_group);
 
 			if(pAppId && GetAppidListValue(AILIST_GROUPPINNED, pAppId, &nListValue))
@@ -1354,7 +1354,7 @@ static LONG_PTR __stdcall StartAnimationHook(LONG_PTR var1, void *pObject, int n
 	else
 		lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, void *, int))pStartAnimation)(var1, pObject, nAnimation);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1365,7 +1365,7 @@ static int __stdcall GetStuckPlaceHook(LONG_PTR this_ptr)
 	HWND hMMTaskListWnd;
 	int nRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	lpMMTaskListLongPtr = this_ptr - DEF3264(0x18, 0x30);
 	hMMTaskListWnd = *EV_MM_TASKLIST_HWND(lpMMTaskListLongPtr);
@@ -1378,7 +1378,7 @@ static int __stdcall GetStuckPlaceHook(LONG_PTR this_ptr)
 	else
 		nRet = ((int(__stdcall *)(LONG_PTR))pGetStuckPlace)(this_ptr);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return nRet;
 }
@@ -1389,7 +1389,7 @@ static HRESULT __stdcall TaskListWndInitializeHook(LONG_PTR this_ptr, LONG_PTR v
 
 	HRESULT hrRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	hrRet = ((HRESULT(__stdcall *)(LONG_PTR, LONG_PTR, LONG_PTR))pTaskListWndInitialize)(this_ptr, var2, var3);
 	if(SUCCEEDED(hrRet))
@@ -1398,7 +1398,7 @@ static HRESULT __stdcall TaskListWndInitializeHook(LONG_PTR this_ptr, LONG_PTR v
 		OnTaskListWndInitialized(lpSecondaryTaskListLongPtr);
 	}
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return hrRet;
 }
@@ -1409,7 +1409,7 @@ static HRESULT __stdcall TaskListWndInitializeHook2(LONG_PTR this_ptr, LONG_PTR 
 
 	HRESULT hrRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	hrRet = ((HRESULT(__stdcall *)(LONG_PTR, LONG_PTR, LONG_PTR, LONG_PTR))pTaskListWndInitialize)(this_ptr, var2, var3, var4);
 	if(SUCCEEDED(hrRet))
@@ -1418,7 +1418,7 @@ static HRESULT __stdcall TaskListWndInitializeHook2(LONG_PTR this_ptr, LONG_PTR 
 		OnTaskListWndInitialized(lpSecondaryTaskListLongPtr);
 	}
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return hrRet;
 }
@@ -1429,7 +1429,7 @@ static HRESULT __stdcall TaskListWndInitializeHook3(LONG_PTR this_ptr, LONG_PTR 
 
 	HRESULT hrRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	hrRet = ((HRESULT(__stdcall *)(LONG_PTR, LONG_PTR, LONG_PTR, LONG_PTR, LONG_PTR))pTaskListWndInitialize)(this_ptr, var2, var3, var4, var5);
 	if(SUCCEEDED(hrRet))
@@ -1438,7 +1438,7 @@ static HRESULT __stdcall TaskListWndInitializeHook3(LONG_PTR this_ptr, LONG_PTR 
 		OnTaskListWndInitialized(lpSecondaryTaskListLongPtr);
 	}
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return hrRet;
 }
@@ -1467,7 +1467,7 @@ static LONG_PTR __stdcall TaskCreatedHook(LONG_PTR this_ptr, LONG_PTR var2, LONG
 	LONG_PTR lpMMTaskListLongPtr;
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	// Hook functions
 	bApplyQueuedHooks = FALSE;
@@ -1500,7 +1500,7 @@ static LONG_PTR __stdcall TaskCreatedHook(LONG_PTR this_ptr, LONG_PTR var2, LONG
 	else
 		lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR, LONG_PTR))pTaskCreated)(this_ptr, var2, var3);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1512,7 +1512,7 @@ static LONG_PTR __stdcall ActivateTaskHook(LONG_PTR this_ptr, LONG_PTR *task_gro
 	LONG_PTR *prev_button_group_active, *button_group_active;
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	lpMMTaskListLongPtr = this_ptr - DEF3264(0x14, 0x28);
 	hMMTaskListWnd = *EV_MM_TASKLIST_HWND(lpMMTaskListLongPtr);
@@ -1542,7 +1542,7 @@ static LONG_PTR __stdcall ActivateTaskHook(LONG_PTR this_ptr, LONG_PTR *task_gro
 	else
 		lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, LONG_PTR *))pActivateTask)(this_ptr, task_group, task_item);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1555,7 +1555,7 @@ static LONG_PTR __stdcall TaskDestroyedHook(LONG_PTR this_ptr, LONG_PTR *task_gr
 	LONG_PTR *prev_button_group_active, *button_group_active;
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	lpMMTaskListLongPtr = this_ptr - DEF3264(0x14, 0x28);
 
@@ -1577,7 +1577,7 @@ static LONG_PTR __stdcall TaskDestroyedHook(LONG_PTR this_ptr, LONG_PTR *task_gr
 	else
 		lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, LONG_PTR *))pTaskDestroyed)(this_ptr, task_group, task_item);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1589,7 +1589,7 @@ static LONG_PTR __stdcall TaskInclusionChangedHook(LONG_PTR this_ptr, LONG_PTR *
 	LONG_PTR lpMMTaskListLongPtr;
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	lpMMTaskListLongPtr = this_ptr - DEF3264(0x14, 0x28);
 
@@ -1604,7 +1604,7 @@ static LONG_PTR __stdcall TaskInclusionChangedHook(LONG_PTR this_ptr, LONG_PTR *
 	else
 		lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, LONG_PTR *))pTaskInclusionChanged)(this_ptr, task_group, task_item);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1616,13 +1616,13 @@ static LONG_PTR __stdcall GetButtonHeightHook(LONG_PTR this_ptr, LONG_PTR var2)
 
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	GetIconSizeAndGetButtonHeightHack();
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR))pGetButtonHeight)(this_ptr, var2);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1634,7 +1634,7 @@ static LONG_PTR __stdcall DismissHoverUIHook(LONG_PTR this_ptr, BOOL bHideWithou
 	LONG_PTR *button_group_of_thumb;
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	if(bThumbNoDismiss)
 	{
@@ -1654,7 +1654,7 @@ static LONG_PTR __stdcall DismissHoverUIHook(LONG_PTR this_ptr, BOOL bHideWithou
 	else
 		lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, BOOL))pDismissHoverUI)(this_ptr, bHideWithoutAnimation);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1668,7 +1668,7 @@ static LONG_PTR __stdcall ShowDestinationMenuHook(LONG_PTR this_ptr, LONG_PTR *t
 	LONG_PTR *prev_button_group_active, *button_group_active;
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	lpMMTaskListLongPtr = this_ptr - DEF3264(0x14, 0x28);
 	hMMTaskListWnd = *EV_MM_TASKLIST_HWND(lpMMTaskListLongPtr);
@@ -1706,7 +1706,7 @@ static LONG_PTR __stdcall ShowDestinationMenuHook(LONG_PTR this_ptr, LONG_PTR *t
 			lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, LONG_PTR *, LONG_PTR, LONG_PTR))pShowDestinationMenu)(this_ptr, task_group, task_item, var4, var5);
 	}
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1719,7 +1719,7 @@ static LONG_PTR __stdcall ShowJumpViewHook(LONG_PTR this_ptr, LONG_PTR *task_gro
 	HWND hMMTaskListWnd;
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	lpMMTaskListLongPtr = this_ptr - DEF3264(0x14, 0x28);
 	hMMTaskListWnd = *EV_MM_TASKLIST_HWND(lpMMTaskListLongPtr);
@@ -1744,7 +1744,7 @@ static LONG_PTR __stdcall ShowJumpViewHook(LONG_PTR this_ptr, LONG_PTR *task_gro
 		lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, LONG_PTR *, LONG_PTR))pShowDestinationMenu)(this_ptr, task_group, task_item, var4);
 	}
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1900,11 +1900,11 @@ static LONG_PTR __stdcall OnDestinationMenuDismissedHook(LONG_PTR this_ptr)
 	LONG_PTR *prev_button_group_active, *button_group_active;
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	if(nOptions[OPT_COMBINING_DEACTIVE] == 1)
 	{
-		lpMMTaskListLongPtr = this_ptr - DO2_3264(0x30, 0x60, 0, 0 /* omitted from public code */);
+		lpMMTaskListLongPtr = this_ptr - DO5_3264(0x30, 0x60, ,, ,, ,, 0x2C, 0x58);
 
 		prev_button_group_active = TaskbarGetActiveButtonGroup(lpMMTaskListLongPtr);
 
@@ -1918,7 +1918,7 @@ static LONG_PTR __stdcall OnDestinationMenuDismissedHook(LONG_PTR this_ptr)
 	else
 		lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR))pOnDestinationMenuDismissed)(this_ptr);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -1937,7 +1937,7 @@ static LONG_PTR __stdcall DisplayUIHook(LONG_PTR this_ptr, LONG_PTR *button_grou
 	BOOL bProcessed;
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	if(nOptionsEx[OPT_EX_ALWAYS_SHOW_THUMB_LABELS])
 	{
@@ -1947,13 +1947,13 @@ static LONG_PTR __stdcall DisplayUIHook(LONG_PTR this_ptr, LONG_PTR *button_grou
 	{
 		bProcessed = FALSE;
 
-		task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
+		task_group = (LONG_PTR *)button_group[DO2(3, 4)];
 		pAppId = *EV_TASKGROUP_APPID(task_group);
 
-		button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
+		button_group_type = (int)button_group[DO2(6, 8)];
 		if(
 			button_group_type == 1 &&
-			(int)((LONG_PTR *)button_group[DO2(5, 0 /* omitted from public code */)])[0] > 1 // buttons_count
+			(int)((LONG_PTR *)button_group[DO2(5, 7)])[0] > 1 // buttons_count
 		)
 		{
 			if(nOptions[OPT_COMBINING_DE_LABELS] == 1)
@@ -2010,7 +2010,7 @@ static LONG_PTR __stdcall DisplayUIHook(LONG_PTR this_ptr, LONG_PTR *button_grou
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR *, LONG_PTR, LONG_PTR, DWORD))pDisplayUI)(this_ptr, button_group, var3, var4, dwFlags);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -2022,9 +2022,9 @@ static LONG_PTR __stdcall GetThumbRectFromIndexHook(LONG_PTR this_ptr, int thumb
 	LONG_PTR lpMMThumbnailLongPtr;
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
-	lpMMThumbnailLongPtr = this_ptr - DO2_3264(0x10, 0x20, 0, 0 /* omitted from public code */);
+	lpMMThumbnailLongPtr = this_ptr - DO5_3264(0x10, 0x20, ,, ,, ,, 0x08, 0x10);
 
 	if(nOptionsEx[OPT_EX_LIST_REVERSE_ORDER] && thumb_index >= 0)
 	{
@@ -2102,7 +2102,7 @@ static LONG_PTR __stdcall GetThumbRectFromIndexHook(LONG_PTR this_ptr, int thumb
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, int, LONG_PTR, RECT *))pGetThumbRectFromIndex)(this_ptr, thumb_index, var3, prcResult);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -2114,9 +2114,9 @@ static int __stdcall ThumbIndexFromPointHook(LONG_PTR this_ptr, POINT *ppt)
 	LONG_PTR lpMMThumbnailLongPtr;
 	int nRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
-	lpMMThumbnailLongPtr = this_ptr - DO2_3264(0x10, 0x20, 0, 0 /* omitted from public code */);
+	lpMMThumbnailLongPtr = this_ptr - DO5_3264(0x10, 0x20, ,, ,, ,, 0x08, 0x10);
 
 	if(nOptionsEx[OPT_EX_LIST_REVERSE_ORDER])
 	{
@@ -2157,7 +2157,7 @@ static int __stdcall ThumbIndexFromPointHook(LONG_PTR this_ptr, POINT *ppt)
 	else
 		nRet = ((int(__stdcall *)(LONG_PTR, POINT *))pThumbIndexFromPoint)(this_ptr, ppt);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return nRet;
 }
@@ -2167,7 +2167,7 @@ static LONG_PTR __stdcall DestroyThumbnailHook(LONG_PTR this_ptr, LONG_PTR var2)
 	LONG_PTR lpMMThumbnailLongPtr;
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR))pDestroyThumbnail)(this_ptr, var2);
 
@@ -2188,7 +2188,7 @@ static LONG_PTR __stdcall DestroyThumbnailHook(LONG_PTR this_ptr, LONG_PTR var2)
 	// * CTaskListWnd::v_WndProc
 	if(nOptions[OPT_GROUPING_RIGHTDRAG] == 1)
 	{
-		lpMMThumbnailLongPtr = this_ptr - DO2_3264(0x18, 0x30, 0, 0 /* omitted from public code */);
+		lpMMThumbnailLongPtr = this_ptr - DO5_3264(0x18, 0x30, ,, ,, ,, 0x10, 0x20);
 
 		LONG_PTR *plp = (LONG_PTR *)*EV_MM_THUMBNAIL_THUMBNAILS_HDPA(lpMMThumbnailLongPtr);
 		if(plp)
@@ -2209,7 +2209,7 @@ static LONG_PTR __stdcall DestroyThumbnailHook(LONG_PTR this_ptr, LONG_PTR var2)
 		}
 	}
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -2239,7 +2239,7 @@ S_OK if there's a match, E_FAIL otherwise
 	int i;
 	HRESULT hrRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 	nDoesWindowMatchCalls++;
 
 	hrRet = ((HRESULT(__stdcall *)(LONG_PTR *, HWND, ITEMIDLIST *, WCHAR *, int *, LONG_PTR **))pDoesWindowMatch)
@@ -2312,7 +2312,7 @@ S_OK if there's a match, E_FAIL otherwise
 	}
 
 	nDoesWindowMatchCalls--;
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return hrRet;
 }
@@ -2373,7 +2373,7 @@ static int __stdcall TaskItemSetWindowHook(LONG_PTR *task_item, HWND hNewWnd)
 	HWND hOldWnd;
 	int nRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	if(nOptionsEx[OPT_EX_FIX_HANG_REPOSITION])
 	{
@@ -2385,7 +2385,7 @@ static int __stdcall TaskItemSetWindowHook(LONG_PTR *task_item, HWND hNewWnd)
 
 	nRet = ((int(__stdcall *)(LONG_PTR *, HWND))pTaskItemSetWindow)(task_item, hNewWnd);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return nRet;
 }
@@ -2395,7 +2395,7 @@ static HWND __stdcall TaskItemGetWindowHook(LONG_PTR *task_item)
 	HWND hRetWnd;
 	HWND hGhostWnd;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	hRetWnd = ((HWND(__stdcall *)(LONG_PTR *))pTaskItemGetWindow)(task_item);
 
@@ -2426,7 +2426,7 @@ static HWND __stdcall TaskItemGetWindowHook(LONG_PTR *task_item)
 		}
 	}
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return hRetWnd;
 }
@@ -2435,9 +2435,9 @@ static LONG_PTR __stdcall ButtonGroupRemoveTaskItemHook(LONG_PTR *button_group, 
 {
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
-	LONG_PTR *task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
+	LONG_PTR *task_group = (LONG_PTR *)button_group[DO2(3, 4)];
 	if(task_group)
 	{
 		DWORD dwFlags = *EV_TASKGROUP_FLAGS(task_group);
@@ -2464,7 +2464,7 @@ static LONG_PTR __stdcall ButtonGroupRemoveTaskItemHook(LONG_PTR *button_group, 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR *, LONG_PTR *))pButtonGroupRemoveTaskItem)
 		(button_group, task_item);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -2480,7 +2480,7 @@ static LONG_PTR __stdcall GetIdealSpanHook(LONG_PTR *button_group, LONG_PTR var2
 	DWORD dwOldUserPrefSetBits, dwOldUserPrefRemoveBits;
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 	bInGetIdealSpan = TRUE;
 
 	selective_combining_hack_eof = 0;
@@ -2497,7 +2497,7 @@ static LONG_PTR __stdcall GetIdealSpanHook(LONG_PTR *button_group, LONG_PTR var2
 	dwOldUserPrefSetBits = dwUserPrefSetBits;
 	dwOldUserPrefRemoveBits = dwUserPrefRemoveBits;
 
-	p_button_group_type = (int *)&button_group[DO2(6, 0 /* omitted from public code */)];
+	p_button_group_type = (int *)&button_group[DO2(6, 8)];
 	button_group_type = *p_button_group_type;
 	if(button_group_type == 1 || button_group_type == 3)
 	{
@@ -2528,7 +2528,7 @@ static LONG_PTR __stdcall GetIdealSpanHook(LONG_PTR *button_group, LONG_PTR var2
 		selective_combining_hack = selective_combining_hack_eof;
 
 	bInGetIdealSpan = FALSE;
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -2550,7 +2550,7 @@ static LONG_PTR __stdcall SetLocationHook(LONG_PTR *button_group, LONG_PTR var2,
 	int i;
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	if(nOptionsEx[OPT_EX_MULTIROW_EQUAL_WIDTH])
 	{
@@ -2585,11 +2585,11 @@ static LONG_PTR __stdcall SetLocationHook(LONG_PTR *button_group, LONG_PTR var2,
 				{
 					for(i = 0; i < button_groups_count; i++)
 					{
-						button_group_type = (int)button_groups[i][DO2(6, 0 /* omitted from public code */)];
+						button_group_type = (int)button_groups[i][DO2(6, 8)];
 						if(button_group_type != 1)
 							break;
 
-						plp = (LONG_PTR *)button_groups[i][DO2(5, 0 /* omitted from public code */)];
+						plp = (LONG_PTR *)button_groups[i][DO2(5, 7)];
 
 						buttons_count = (int)plp[0];
 						//buttons = (LONG_PTR **)plp[1];
@@ -2632,7 +2632,7 @@ static LONG_PTR __stdcall SetLocationHook(LONG_PTR *button_group, LONG_PTR var2,
 						rcNew = *prc;
 						prc = &rcNew;
 
-						prcSrcRect = *(RECT **)(button_groups[nIndex][DO2(4, 0 /* omitted from public code */)] + sizeof(LONG_PTR));
+						prcSrcRect = *(RECT **)(button_groups[nIndex][DO2(4, 6)] + sizeof(LONG_PTR));
 
 						prc->left = prcSrcRect->left;
 						prc->right = prcSrcRect->right;
@@ -2654,7 +2654,7 @@ static LONG_PTR __stdcall SetLocationHook(LONG_PTR *button_group, LONG_PTR var2,
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR *, LONG_PTR, LONG_PTR, RECT *))pSetLocation)(button_group, var2, var3, prc);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -2667,12 +2667,12 @@ static LONG_PTR __stdcall RenderHook(LONG_PTR *button_group, LONG_PTR var2, LONG
 	DWORD dwOldUserPrefSetBits, dwOldUserPrefRemoveBits;
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	dwOldUserPrefSetBits = dwUserPrefSetBits;
 	dwOldUserPrefRemoveBits = dwUserPrefRemoveBits;
 
-	button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
+	button_group_type = (int)button_group[DO2(6, 8)];
 	if(button_group_type == 1 || button_group_type == 3)
 		ButtonGroupSetPrefOnUpdate(button_group, TRUE);
 
@@ -2698,7 +2698,7 @@ static LONG_PTR __stdcall RenderHook(LONG_PTR *button_group, LONG_PTR var2, LONG
 	dwUserPrefSetBits = dwOldUserPrefSetBits;
 	dwUserPrefRemoveBits = dwOldUserPrefRemoveBits;
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -2711,12 +2711,12 @@ static LONG_PTR __stdcall RenderHook2(LONG_PTR *button_group, LONG_PTR var2, LON
 	DWORD dwOldUserPrefSetBits, dwOldUserPrefRemoveBits;
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	dwOldUserPrefSetBits = dwUserPrefSetBits;
 	dwOldUserPrefRemoveBits = dwUserPrefRemoveBits;
 
-	button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
+	button_group_type = (int)button_group[DO2(6, 8)];
 	if(button_group_type == 1 || button_group_type == 3)
 		ButtonGroupSetPrefOnUpdate(button_group, TRUE);
 
@@ -2736,7 +2736,7 @@ static LONG_PTR __stdcall RenderHook2(LONG_PTR *button_group, LONG_PTR var2, LON
 	dwUserPrefSetBits = dwOldUserPrefSetBits;
 	dwUserPrefRemoveBits = dwOldUserPrefRemoveBits;
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -2751,7 +2751,7 @@ static BOOL __stdcall ButtonGroupCanGlomHook(LONG_PTR *button_group)
 	BOOL bDecombineTemporary;
 	BOOL bRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	selective_combining_hack_eof = 0;
 	if(selective_combining_hack >= 1)
@@ -2762,10 +2762,10 @@ static BOOL __stdcall ButtonGroupCanGlomHook(LONG_PTR *button_group)
 		selective_combining_hack = 0;
 	}
 
-	button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
+	button_group_type = (int)button_group[DO2(6, 8)];
 	if(
 		button_group_type == 1 &&
-		(int)((LONG_PTR *)button_group[DO2(5, 0 /* omitted from public code */)])[0] > 1 // buttons_count
+		(int)((LONG_PTR *)button_group[DO2(5, 7)])[0] > 1 // buttons_count
 	)
 	{
 		bRet = CheckCombineButtonGroup(button_group);
@@ -2807,7 +2807,7 @@ static BOOL __stdcall ButtonGroupCanGlomHook(LONG_PTR *button_group)
 	if(selective_combining_hack_eof)
 		selective_combining_hack = selective_combining_hack_eof;
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return bRet;
 }
@@ -2824,13 +2824,13 @@ static void ButtonGroupSetPrefOnUpdate(LONG_PTR *button_group, BOOL bDecombineWi
 	LONG_PTR *button_group_tracked;
 	int nLabelListValue;
 
-	task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
+	task_group = (LONG_PTR *)button_group[DO2(3, 4)];
 	pAppId = *EV_TASKGROUP_APPID(task_group);
 
-	button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
+	button_group_type = (int)button_group[DO2(6, 8)];
 	if(
 		button_group_type == 1 &&
-		(int)((LONG_PTR *)button_group[DO2(5, 0 /* omitted from public code */)])[0] > 1 // buttons_count
+		(int)((LONG_PTR *)button_group[DO2(5, 7)])[0] > 1 // buttons_count
 	)
 	{
 		// multimonitor environment
@@ -2924,14 +2924,14 @@ static LONG_PTR __stdcall ButtonGroupHotTrackingHook(LONG_PTR *button_group, BOO
 
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR *, BOOL, int, BOOL))pButtonGroupHotTracking)
 		(button_group, bNewGroup, button_index, bAnimation);
 
 	OnButtonGroupHotTracking(button_group, bNewGroup, button_index);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -2942,14 +2942,14 @@ static LONG_PTR __stdcall ButtonGroupHotTrackOutHook(LONG_PTR *button_group, BOO
 
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR *, BOOL))pButtonGroupHotTrackOut)
 		(button_group, bAnimation);
 
 	OnButtonGroupHotTrackOut(button_group);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -2958,14 +2958,14 @@ static LONG_PTR __stdcall ButtonGroupStartItemAnimationHook(LONG_PTR *button_gro
 {
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR *, int, int))pButtonGroupStartItemAnimation)
 		(button_group, nAnimationInfo, nAnimationType);
 
 	// Do nothing here for now
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -2978,7 +2978,7 @@ static LONG_PTR __stdcall ButtonGroupHasItemAnimationHook(LONG_PTR *button_group
 	static int active_button_index;
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR *, int, int, int *))pButtonGroupHasItemAnimation)
 		(button_group, nAnimationInfo, nAnimationType, pnResult);
@@ -3052,7 +3052,7 @@ static LONG_PTR __stdcall ButtonGroupHasItemAnimationHook(LONG_PTR *button_group
 		}
 	}
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -3143,10 +3143,10 @@ static void OnButtonGroupHotTrackOut(LONG_PTR *button_group)
 		else
 		{
 			// Fixes combine on close
-			button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
+			button_group_type = (int)button_group[DO2(6, 8)];
 			if(button_group_type == 1)
 			{
-				plp = (LONG_PTR *)button_group[DO2(5, 0 /* omitted from public code */)];
+				plp = (LONG_PTR *)button_group[DO2(5, 7)];
 
 				button_count = (int)plp[0];
 				if(button_count > 1)
@@ -3155,7 +3155,7 @@ static void OnButtonGroupHotTrackOut(LONG_PTR *button_group)
 
 					if(WindowFromPoint(ptCursor) == hMMTaskListWnd)
 					{
-						prcGroup = *(RECT **)(button_group[DO2(4, 0 /* omitted from public code */)] + sizeof(LONG_PTR));
+						prcGroup = *(RECT **)(button_group[DO2(4, 6)] + sizeof(LONG_PTR));
 						MapWindowPoints(NULL, hMMTaskListWnd, &ptCursor, 1);
 
 						if(PtInRect(prcGroup, ptCursor))
@@ -3204,7 +3204,7 @@ static BOOL __stdcall ShouldShowToolTipHook(LONG_PTR *button_group, LONG_PTR *ta
 {
 	BOOL bRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	if(nOptionsEx[OPT_EX_ALWAYS_SHOW_TOOLTIP] == 1)
 		bRet = TRUE;
@@ -3213,7 +3213,7 @@ static BOOL __stdcall ShouldShowToolTipHook(LONG_PTR *button_group, LONG_PTR *ta
 	else
 		bRet = ((BOOL(__stdcall *)(LONG_PTR *, LONG_PTR *))pShouldShowToolTip)(button_group, task_item);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return bRet;
 }
@@ -3222,13 +3222,13 @@ static LONG_PTR __stdcall SecondaryGetUserPreferencesHook(LONG_PTR var1, DWORD *
 {
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR, DWORD *))pSecondaryGetUserPreferences)(var1, pdwPreferences);
 
 	*pdwPreferences = ManipulateUserPreferences(*pdwPreferences, _AddressOfReturnAddress());
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -3237,7 +3237,7 @@ static LONG_PTR __stdcall SecondaryIsHorizontalHook(LONG_PTR this_ptr)
 {
 	LONG_PTR lpRet;
 
-	hook_proc_call_counter++;
+	nHookProcCallCounter++;
 
 	if(nWinVersion <= WIN_VERSION_811)
 	{
@@ -3250,7 +3250,7 @@ static LONG_PTR __stdcall SecondaryIsHorizontalHook(LONG_PTR this_ptr)
 
 	lpRet = ((LONG_PTR(__stdcall *)(LONG_PTR))pSecondaryIsHorizontal)(this_ptr);
 
-	hook_proc_call_counter--;
+	nHookProcCallCounter--;
 
 	return lpRet;
 }
@@ -3281,8 +3281,513 @@ static DWORD ManipulateUserPreferences(DWORD dwPreferences, void **ppAddressOfRe
 
 	if(nWinVersion >= WIN_VERSION_10_T1 && decombine_without_labels_hack == 1)
 	{
-		if(FALSE) // if called at the right location, omitted from public code
-			decombine_without_labels_hack = 2;
+		// Assembly code below is from CTaskBtnGroup::_DrawRegularButton
+
+		BYTE *pbCode = (BYTE *)pReturnAddress;
+
+#ifdef _WIN64
+		if(nWinVersion == WIN_VERSION_10_T1)
+		{
+			// 8B 54 24 XX              | mov edx,dword ptr ss:[rsp+XX]
+			// F6 C2 02                 | test dl,2
+			if(pbCode[0] == 0x8B && pbCode[1] == 0x54 && pbCode[2] == 0x24 &&
+				pbCode[4] == 0xF6 && pbCode[5] == 0xC2 && pbCode[6] == 0x02)
+			{
+				pbCode += 7;
+			}
+			else
+				pbCode = NULL;
+
+			// 0F 84 XX XX XX XX        | je XXXXXXXX
+			// 89 7C 24 XX              | mov dword ptr ss:[rsp+XX],edi
+			if(pbCode &&
+				pbCode[0] == 0x0F && pbCode[1] == 0x84 &&
+				pbCode[6] == 0x89 && pbCode[7] == 0x7C && pbCode[8] == 0x24)
+			{
+				decombine_without_labels_hack = 2;
+			}
+		}
+		else if(nWinVersion == WIN_VERSION_10_T2)
+		{
+			// 8B 54 24 XX              | mov edx,dword ptr ss:[rsp+XX]
+			// F6 C2 02                 | test dl,2
+			if(pbCode[0] == 0x8B && pbCode[1] == 0x54 && pbCode[2] == 0x24 &&
+				pbCode[4] == 0xF6 && pbCode[5] == 0xC2 && pbCode[6] == 0x02)
+			{
+				pbCode += 7;
+			}
+			else
+				pbCode = NULL;
+
+			// 0F85 XXXXXXXX | JNZ XXXXXXXX
+			if(pbCode &&
+				pbCode[0] == 0x0F && pbCode[1] == 0x85)
+			{
+				INT32 nOffset = *(INT32 *)(pbCode + 2);
+				pbCode += 6;
+				pbCode += nOffset;
+			}
+			// 75 XX | JNZ SHORT XXXXXXXX
+			else if(pbCode &&
+				pbCode[0] == 0x75)
+			{
+				INT8 nOffset = *(INT8 *)(pbCode + 1);
+				pbCode += 2;
+				pbCode += nOffset;
+			}
+			else
+				pbCode = NULL;
+
+			// 44 89 74 24 XX | mov dword ptr ss:[rsp+XX],r14d
+			if(pbCode &&
+				pbCode[0] == 0x44 && pbCode[1] == 0x89 && pbCode[2] == 0x74 && pbCode[3] == 0x24)
+			{
+				decombine_without_labels_hack = 2;
+			}
+		}
+		else if(nWinVersion <= WIN_VERSION_10_R3)
+		{
+			/*
+				lea rax,qword ptr ss:[rbp-18]
+				mov qword ptr ss:[rsp+20],rax
+				mov rbx,qword ptr ss:[rbp-40]
+				mov r9,rbx
+				mov r8b,1
+				mov rdx,r12
+				mov rcx,r14
+				call <explorer.private: void __cdecl CTaskBtnGroup::_GetStatesFromRenderInfo(struct BUTTONRE
+				lea r9,qword ptr ss:[rbp-18]
+				mov r8,r12
+				mov rdx,r13
+				mov rcx,r14
+				call <explorer.private: void __cdecl CTaskBtnGroup::_DrawBasePlate(struct HDC__ * __ptr64,st
+				lea r9,qword ptr ss:[rbp-18]
+				mov r8,r12
+				mov rdx,r13
+				mov rcx,r14
+				call <explorer.private: void __cdecl CTaskBtnGroup::_DrawIndicator(struct HDC__ * __ptr64,st
+				mov eax,dword ptr ss:[rbp-C]
+				cmp eax,FFFF
+				je explorer.7FF75FBBFA50
+				test eax,eax
+				jne explorer.7FF75FBBFA68
+				lea r9,qword ptr ss:[rbp-18]
+				mov r8,r12
+				mov rdx,r13
+				mov rcx,r14
+				call <explorer.private: void __cdecl CTaskBtnGroup::_DrawBar(struct HDC__ * __ptr64,struct B
+				cmp dword ptr ds:[r12+E8],0
+				jne explorer.7FF75FB2C78C
+				mov rax,qword ptr ds:[r14+28]
+				mov ecx,edi
+				mov dword ptr ss:[rbp-70],ecx
+				mov r8,qword ptr ds:[rax+60]
+				test r8,r8
+				je explorer.7FF75FB2BAA4
+				mov rax,qword ptr ds:[r8]
+				mov rax,qword ptr ds:[rax+30]
+				lea r9,qword ptr ds:[<public: virtual long __cdecl CTaskBand::GetUserPreferences(unsigned lo
+				cmp rax,r9
+				jne explorer.7FF75FBBFB96 <---------------------------------------------- We're hooking THIS
+				mov ecx,dword ptr ds:[r8+48]
+				mov dword ptr ss:[rbp-70],ecx
+				test cl,2
+			*/
+
+			// 8B 4D XX                 | mov ecx,dword ptr ss:[rbp-XX]
+			if(pbCode[0] == 0x8B && pbCode[1] == 0x4D)
+			{
+				pbCode += 3;
+			}
+			else
+				pbCode = NULL;
+
+			// Optional:
+			// E9 XXXXXXXX | jmp XXXXXXXX
+			if(pbCode &&
+				pbCode[0] == 0xE9)
+			{
+				INT32 nOffset = *(INT32 *)(pbCode + 1);
+				pbCode += 5;
+				pbCode += nOffset;
+			}
+
+			// F6 C1 02                 | test cl,2
+			if(pbCode &&
+				pbCode[0] == 0xF6 && pbCode[1] == 0xC1 && pbCode[2] == 0x02)
+			{
+				pbCode += 3;
+			}
+			else
+				pbCode = NULL;
+
+			// 0F 84 XX XX XX XX        | je XXXXXXXX
+			// 89 7D XX                 | mov dword ptr ss:[rbp-XX],edi
+			// -OR-
+			// 0F 84 XX XX XX XX        | je XXXXXXXX
+			// 89 7C 24 XX              | mov dword ptr ss:[rsp+XX],edi
+			if(pbCode &&
+				pbCode[0] == 0x0F && pbCode[1] == 0x84 &&
+				pbCode[6] == 0x89 && (pbCode[7] == 0x7D || (pbCode[7] == 0x7C && pbCode[8] == 0x24)))
+			{
+				decombine_without_labels_hack = 2;
+			}
+		}
+		else if(nWinVersion <= WIN_VERSION_10_R4)
+		{
+			// 49 8B 5D XX | mov rbx,qword ptr ds:[r13+XX]
+			// 8B 44 24 XX | mov eax,dword ptr ss:[rsp+XX]
+			if(pbCode[0] == 0x49 && pbCode[1] == 0x8B && pbCode[2] == 0x5D &&
+				pbCode[4] == 0x8B && pbCode[5] == 0x44 && pbCode[6] == 0x24)
+			{
+				pbCode += 8;
+			}
+			else
+				pbCode = NULL;
+
+			// E9 XXXXXXXX | jmp XXXXXXXX
+			if(pbCode &&
+				pbCode[0] == 0xE9)
+			{
+				INT32 nOffset = *(INT32 *)(pbCode + 1);
+				pbCode += 5;
+				pbCode += nOffset;
+			}
+			else
+				pbCode = NULL;
+
+			// 44 8B 27       | mov r12d,dword ptr ds:[rdi]
+			// A8 02          | test al,2
+			// 0F 84 XXXXXXXX | je XXXXXXXX
+			// 89 74 24 XX    | mov dword ptr ss:[rsp+XX],esi
+			if(pbCode &&
+				pbCode[0] == 0x44 && pbCode[1] == 0x8B && pbCode[2] == 0x27 &&
+				pbCode[3] == 0xA8 && pbCode[4] == 0x02 &&
+				pbCode[5] == 0x0F && pbCode[6] == 0x84 &&
+				pbCode[11] == 0x89 && pbCode[12] == 0x74 && pbCode[13] == 0x24)
+			{
+				decombine_without_labels_hack = 2;
+			}
+		}
+		else if(nWinVersion <= WIN_VERSION_10_20H1)
+		{
+			// 49 8B 5F XX | mov     rbx,qword ptr [r15+XX] ; <-- registers may differ
+			// ^ 49 8B (bin: 01??????) ??
+			if(pbCode[0] == 0x49 && pbCode[1] == 0x8B && (pbCode[2] & 0xC0) == 0x40)
+			{
+				pbCode += 4;
+			}
+			else
+				pbCode = NULL;
+
+			// 8B 45 XX    | mov     eax,dword ptr [rbp-XX]
+			if(pbCode &&
+				pbCode[0] == 0x8B && pbCode[1] == 0x45)
+			{
+				pbCode += 3;
+			}
+			else
+				pbCode = NULL;
+
+			// 41 8B 4D 00 | mov     ecx,dword ptr [r13] ; <-- registers may differ
+			// ^ (41 or 45) 8B (bin: 01??????) 00
+			// -or-
+			// 44 8B 27    | mov     r12d,dword ptr [rdi] ; <-- registers may differ
+			// ^ 44 8B (bin: 00??????)
+			if(pbCode &&
+				(pbCode[0] == 0x41 || pbCode[0] == 0x45) && pbCode[1] == 0x8B && (pbCode[2] & 0xC0) == 0x40 && pbCode[3] == 0x00)
+			{
+				pbCode += 4;
+			}
+			else if(pbCode &&
+				pbCode[0] == 0x44 && pbCode[1] == 0x8B && (pbCode[2] & 0xC0) == 0x00)
+			{
+				pbCode += 3;
+			}
+			else
+				pbCode = NULL;
+
+			// Optional (early WIN_VERSION_10_20H1):
+			// 89 4D XX    | mov     dword ptr [rbp-XX],ecx
+			if(pbCode &&
+				pbCode[0] == 0x89 && pbCode[1] == 0x4D)
+			{
+				pbCode += 3;
+			}
+
+			// A8 02          | test    al,2
+			if(pbCode &&
+				pbCode[0] == 0xA8 && pbCode[1] == 0x02)
+			{
+				pbCode += 2;
+			}
+			else
+				pbCode = NULL;
+
+			// 0F 84 XXXXXXXX | je      XXXXXXXX
+			// -or-
+			// 75 XX          | jne     XXXXXXXX
+			if(pbCode &&
+				pbCode[0] == 0x0F && pbCode[1] == 0x84)
+			{
+				pbCode += 6;
+			}
+			else if(pbCode &&
+				pbCode[0] == 0x75)
+			{
+				INT8 nOffset = *(INT8 *)(pbCode + 1);
+				pbCode += 2;
+				pbCode += nOffset;
+			}
+			else
+				pbCode = NULL;
+
+			// 89 4C 24 XX | mov dword ptr [rsp+XX],ecx ; <-- registers may differ
+			// ^ 89 (bin: 01???100) 24 XX
+			// -or-
+			// 44 89 64 24 XX | mov dword ptr [rsp+XX],r12d ; <-- registers may differ
+			// ^ 44 89 (bin: 01???100) 24 XX
+			// -or-
+			// 89 4D 84 | mov dword ptr ss:[rbp-XX],ecx ; <-- registers may differ
+			// ^ 89 (bin: 01???101) XX
+			// -or-
+			// 44 89 65 84 | mov dword ptr ss:[rbp-XX],r12d ; <-- registers may differ
+			// ^ 44 89 (bin: 01???101) XX
+			if(pbCode &&
+				pbCode[0] == 0x89 && (pbCode[1] & 0xC7) == 0x44 && pbCode[2] == 0x24)
+			{
+				decombine_without_labels_hack = 2;
+			}
+			else if(pbCode &&
+				pbCode[0] == 0x44 && pbCode[1] == 0x89 && (pbCode[2] & 0xC7) == 0x44 && pbCode[3] == 0x24)
+			{
+				decombine_without_labels_hack = 2;
+			}
+			else if(pbCode &&
+				pbCode[0] == 0x89 && (pbCode[1] & 0xC7) == 0x45)
+			{
+				decombine_without_labels_hack = 2;
+			}
+			else if(pbCode &&
+				pbCode[0] == 0x44 && pbCode[1] == 0x89 && (pbCode[2] & 0xC7) == 0x45)
+			{
+				decombine_without_labels_hack = 2;
+			}
+		}
+		else // if(nWinVersion >= WIN_VERSION_11_21H2)
+		{
+			// 8B4424 XX  | mov eax,dword ptr ss:[rsp+XX]
+			// 48:83C4 28 | add rsp,28
+			// C3         | ret
+			if(pbCode[0] == 0x8B && pbCode[1] == 0x44 && pbCode[2] == 0x24 &&
+				pbCode[4] == 0x48 && pbCode[5] == 0x83 && pbCode[6] == 0xC4 && pbCode[7] == 0x28 &&
+				pbCode[8] == 0xC3)
+			{
+				// Skip the frame of CTaskListWnd::_GetUserPreferences
+				// and get the next return address.
+				pbCode = *(ppAddressOfReturnAddress + 6);
+			}
+			else
+				pbCode = NULL;
+
+			if(nWinVersion <= WIN_VERSION_11_21H2)
+			{
+				// 41:84C6                  | test r14b,al
+				// 75 XX                    | jne XXXXXXXX
+				// 41:8B1424                | mov edx,dword ptr ds:[r12]
+				// 3BD6                     | cmp edx,esi
+				// 75 XX                    | jne XXXXXXXX
+				// 48:85DB                  | test rbx,rbx
+				// 75 XX                    | jne XXXXXXXX
+				// 83FA 03                  | cmp edx,3
+				// 75 XX                    | jne XXXXXXXX
+				if(pbCode &&
+					pbCode[0] == 0x41 && pbCode[1] == 0x84 && pbCode[2] == 0xC6 &&
+					pbCode[3] == 0x75 &&
+					pbCode[5] == 0x41 && pbCode[6] == 0x8B && pbCode[7] == 0x14 && pbCode[8] == 0x24 &&
+					pbCode[9] == 0x3B && pbCode[10] == 0xD6 &&
+					pbCode[11] == 0x75 &&
+					pbCode[13] == 0x48 && pbCode[14] == 0x85 && pbCode[15] == 0xDB &&
+					pbCode[16] == 0x75 &&
+					pbCode[18] == 0x83 && pbCode[19] == 0xFA && pbCode[20] == 0x03 &&
+					pbCode[21] == 0x75)
+				{
+					decombine_without_labels_hack = 2;
+				}
+			}
+			else // if(nWinVersion >= WIN_VERSION_11_22H2)
+			{
+				// 41:84C6                  | test r14b,al
+				// 75 XX                    | jne XXXXXXXX
+				// 41:393424                | cmp dword ptr ds:[r12],esi
+				// 75 XX                    | jne XXXXXXXX
+				// 48:85DB                  | test rbx,rbx
+				// 75 XX                    | jne XXXXXXXX
+				// 41:833C24 03             | cmp dword ptr ds:[r12],3
+				// 75 XX                    | jne XXXXXXXX
+				if(pbCode &&
+					pbCode[0] == 0x41 && pbCode[1] == 0x84 && pbCode[2] == 0xC6 &&
+					pbCode[3] == 0x75 &&
+					pbCode[5] == 0x41 && pbCode[6] == 0x39 && pbCode[7] == 0x34 && pbCode[8] == 0x24 &&
+					pbCode[9] == 0x75 &&
+					pbCode[11] == 0x48 && pbCode[12] == 0x85 && pbCode[13] == 0xDB &&
+					pbCode[14] == 0x75 &&
+					pbCode[16] == 0x41 && pbCode[17] == 0x83 && pbCode[18] == 0x3C && pbCode[19] == 0x24 && pbCode[20] == 0x03 &&
+					pbCode[21] == 0x75)
+				{
+					decombine_without_labels_hack = 2;
+				}
+			}
+		}
+#else // !_WIN64
+		if(nWinVersion <= WIN_VERSION_10_R4)
+		{
+			if(nWinVersion >= WIN_VERSION_10_R4)
+			{
+				// 8B7B XX       | MOV EDI,DWORD PTR [EBX+XX]
+				// 8B8D XXXXXXXX | MOV ECX,DWORD PTR [EBP-XX]
+				// 8B85 XXXXXXXX | MOV EAX,DWORD PTR [EBP-XX]
+				// 8B00          | MOV EAX,DWORD PTR [EAX]
+				// 8985 XXXXXXXX | MOV DWORD PTR [EBP-XX],EAX
+				if(pbCode[0] == 0x8B && pbCode[1] == 0x7B &&
+					pbCode[3] == 0x8B && pbCode[4] == 0x8D &&
+					pbCode[9] == 0x8B && pbCode[10] == 0x85 &&
+					pbCode[15] == 0x8B && pbCode[16] == 0x00 &&
+					pbCode[17] == 0x89 && pbCode[18] == 0x85)
+				{
+					pbCode += 23;
+				}
+				else
+					pbCode = NULL;
+			}
+			else
+			{
+				// 8B8D XXXXXXXX | MOV ECX,DWORD PTR [EBP-XXXXXXXX]
+				if(pbCode[0] == 0x8B && pbCode[1] == 0x8D)
+				{
+					pbCode += 6;
+				}
+				else
+					pbCode = NULL;
+			}
+
+			if(nWinVersion == WIN_VERSION_10_T1)
+			{
+				// E9 XXXXXXXX | JMP XXXXXXXX
+				if(pbCode &&
+					pbCode[0] == 0xE9)
+				{
+					INT32 nOffset = *(INT32 *)(pbCode + 1);
+					pbCode += 5;
+					pbCode += nOffset;
+				}
+				else
+					pbCode = NULL;
+			}
+
+			// F6C1 02 | TEST CL,02
+			if(pbCode &&
+				pbCode[0] == 0xF6 && pbCode[1] == 0xC1 && pbCode[2] == 0x02)
+			{
+				pbCode += 3;
+			}
+		}
+		else // if(nWinVersion >= WIN_VERSION_10_R5)
+		{
+			// 8B73 XX       | MOV ESI,DWORD PTR [EBX+XX]
+			// -or-
+			// 8B7B XX       | MOV EDI,DWORD PTR [EBX+XX]
+			// 8B85 XXXXXXXX | MOV EAX,DWORD PTR [EBP-XXXXXXXX]
+			if(pbCode[0] == 0x8B && (pbCode[1] == 0x73 || pbCode[1] == 0x7B) &&
+				pbCode[3] == 0x8B && pbCode[4] == 0x85)
+			{
+				pbCode += 9;
+			}
+			else
+				pbCode = NULL;
+
+			// Optional:
+			// E9 XXXXXXXX | JMP XXXXXXXX
+			if(pbCode &&
+				pbCode[0] == 0xE9)
+			{
+				INT32 nOffset = *(INT32 *)(pbCode + 1);
+				pbCode += 5;
+				pbCode += nOffset;
+			}
+
+			// 8B0F          | MOV ECX,DWORD PTR [EDI]
+			// 898D XXXXXXXX | MOV DWORD PTR [EBP-XXXXXXXX],ECX
+			// A8 02         | TEST AL,02
+			if(pbCode &&
+				pbCode[0] == 0x8B && pbCode[1] == 0x0F &&
+				pbCode[2] == 0x89 && pbCode[3] == 0x8D &&
+				pbCode[8] == 0xA8 && pbCode[9] == 0x02)
+			{
+				pbCode += 10;
+			}
+			// Seen in WIN_VERSION_10_19H1.
+			// A8 02 | test al,2
+			// 8B07  | mov eax,dword ptr ds:[edi]
+			else if(pbCode &&
+				pbCode[0] == 0xA8 && pbCode[1] == 0x02 &&
+				pbCode[2] == 0x8B && pbCode[3] == 0x07)
+			{
+				pbCode += 4;
+			}
+			// 8BB5 XXXXXXXX | mov esi,dword ptr ss:[ebp-XXXXXXXX]
+			// 8B0E          | mov ecx,dword ptr ds:[esi]
+			// 898D XXXXXXXX | mov dword ptr ss:[ebp-XXXXXXXX],ecx
+			// A8 02         | test al,2
+			else if(pbCode &&
+				pbCode[0] == 0x8B && pbCode[1] == 0xB5 &&
+				pbCode[6] == 0x8B && pbCode[7] == 0x0E &&
+				pbCode[8] == 0x89 && pbCode[9] == 0x8D &&
+				pbCode[14] == 0xA8 && pbCode[15] == 0x02)
+			{
+				pbCode += 16;
+			}
+			else
+				pbCode = NULL;
+		}
+
+		if(pbCode)
+		{
+			// 0F84 XXXXXXXX | JZ XXXXXXXX
+			if(pbCode[0] == 0x0F && pbCode[1] == 0x84)
+			{
+				pbCode += 6;
+			}
+			// 74 XX | JZ SHORT XXXXXXXX
+			else if(pbCode[0] == 0x74)
+			{
+				pbCode += 2;
+			}
+			// 0F85 XXXXXXXX | JNZ XXXXXXXX
+			else if(pbCode[0] == 0x0F && pbCode[1] == 0x85)
+			{
+				INT32 nOffset = *(INT32 *)(pbCode + 2);
+				pbCode += 6;
+				pbCode += nOffset;
+			}
+			// 75 XX | JNZ SHORT XXXXXXXX
+			else if(pbCode[0] == 0x75)
+			{
+				INT8 nOffset = *(INT8 *)(pbCode + 1);
+				pbCode += 2;
+				pbCode += nOffset;
+			}
+			else
+				pbCode = NULL;
+
+			// C785 XXXXXXXX 00000000 | MOV DWORD PTR [EBP-XXXXXXXX],0
+			if(pbCode &&
+				pbCode[0] == 0xC7 && pbCode[1] == 0x85 && pbCode[6] == 0x00 && pbCode[7] == 0x00 && pbCode[8] == 0x00 && pbCode[9] == 0x00)
+			{
+				decombine_without_labels_hack = 2;
+			}
+		}
+#endif // WIN64
 	}
 
 	// A hack for decombining without labels.
@@ -3306,8 +3811,312 @@ static DWORD ManipulateUserPreferences(DWORD dwPreferences, void **ppAddressOfRe
 
 	if(nWinVersion >= WIN_VERSION_10_T1 && selective_combining_hack == 1)
 	{
-		if(FALSE) // if called at the right location, omitted from public code
-			selective_combining_hack = 3;
+		// Assembly code below is from CTaskListWnd::_RecomputeLayout
+
+		BYTE *pbCode = (BYTE *)pReturnAddress;
+
+#ifdef _WIN64
+		if(nWinVersion <= WIN_VERSION_10_R3)
+		{
+			// 8B 44 24 XX              | mov eax,dword ptr ss:[rsp+XX]
+			if(pbCode[0] == 0x8B && pbCode[1] == 0x44 && pbCode[2] == 0x24)
+			{
+				pbCode += 4;
+
+				if(nWinVersion == WIN_VERSION_10_T1)
+				{
+					// 45 33 D2                 | xor r10d,r10d
+					if(pbCode[0] == 0x45)
+					{
+						pbCode += 3;
+					}
+					else
+						pbCode = NULL;
+				}
+				else if(nWinVersion >= WIN_VERSION_10_R1 && nWinVersion <= WIN_VERSION_10_R2)
+				{
+					/*
+						cmp edi,dword ptr ds:[r14+134]
+						jne explorer.7FF75FBBC0AD
+						test edi,edi
+						jne explorer.7FF75FBBC0B4
+						test byte ptr ds:[<Microsoft_Windows_Shell_CoreEnableBits>],1
+						jne explorer.7FF75FB250AE
+						mov rcx,qword ptr ds:[r14+60]
+						lea rdi,qword ptr ds:[<public: virtual long __cdecl CTaskBand::GetUserPreferences(unsigned l
+						mov eax,r9d
+						mov dword ptr ss:[rsp+44],eax
+						test rcx,rcx
+						je explorer.7FF75FB24C62
+						mov rax,qword ptr ds:[rcx]
+						mov rax,qword ptr ds:[rax+30]
+						cmp rax,rdi
+						jne explorer.7FF75FBBC221 <---------------------------------------------- We're hooking THIS
+						mov eax,dword ptr ds:[rcx+48]
+						test al,1
+						je explorer.7FF75FBBC3CB
+						mov rcx,qword ptr ds:[r14+60]
+						mov eax,r9d
+						mov dword ptr ss:[rsp+44],eax
+						test rcx,rcx
+						je explorer.7FF75FB24C8D
+						mov rax,qword ptr ds:[rcx]
+						mov rax,qword ptr ds:[rax+30]
+						cmp rax,rdi
+						jne explorer.7FF75FBBC23E
+						mov eax,dword ptr ds:[rcx+48]
+						mov r13,qword ptr ss:[rsp+70]
+						test al,2
+						je explorer.7FF75FBBC25B
+						mov rdi,r9
+						test r13,r13
+						jle explorer.7FF75FB24D05
+						lea rsi,qword ptr ds:[<public: virtual int __cdecl CTaskBtnGroup::CanGlom(void) __ptr64>]
+						lea r15,qword ptr ds:[<public: virtual void __cdecl CTaskBtnGroup::Glom(int) __ptr64>]
+					*/
+
+					// 41 B8 01 00 00 00        | mov r8d,1
+					if(pbCode[0] == 0x41 && pbCode[1] >= 0xB8 && pbCode[1] <= 0xBF &&
+						pbCode[2] == 0x01 && pbCode[3] == 0x00 &&
+						pbCode[4] == 0x00 && pbCode[5] == 0x00)
+					{
+						pbCode += 6;
+					}
+					else
+						pbCode = NULL;
+
+					if(nWinVersion == WIN_VERSION_10_R1)
+					{
+						// 45 33 C9                 | xor r9d,r9d
+						if(pbCode &&
+							pbCode[0] == 0x45)
+						{
+							pbCode += 3;
+						}
+						else
+							pbCode = NULL;
+					}
+
+					// E9 XXXXXXXX | jmp XXXXXXXX
+					if(pbCode &&
+						pbCode[0] == 0xE9)
+					{
+						INT32 nOffset = *(INT32 *)(pbCode + 1);
+						pbCode += 5;
+						pbCode += nOffset;
+					}
+					else
+						pbCode = NULL;
+				}
+
+				// A8 01                    | test al,1
+				// 0F 84 XX XX XX XX        | je XXXXXXXX
+				if(pbCode &&
+					pbCode[0] == 0xA8 && pbCode[1] == 0x01 &&
+					pbCode[2] == 0x0F && pbCode[3] == 0x84)
+				{
+					selective_combining_hack = 3;
+				}
+			}
+		}
+		else if(nWinVersion <= WIN_VERSION_10_R4)
+		{
+			// F6 45 XX 01    | test byte ptr ss:[rbp-XX],1
+			// 0F 84 XXXXXXXX | je XXXXXXXX
+			if(pbCode[0] == 0xF6 && pbCode[1] == 0x45 && pbCode[3] == 0x01 &&
+				pbCode[4] == 0x0F && pbCode[5] == 0x84)
+			{
+				selective_combining_hack = 3;
+			}
+		}
+		else if(nWinVersion <= WIN_VERSION_10_R5)
+		{
+			// 8B 44 24 XX | mov eax,dword ptr ss:[rsp+XX]
+			// A8 01       | test al,1
+			if(pbCode[0] == 0x8B && pbCode[1] == 0x44 && pbCode[2] == 0x24 &&
+				pbCode[4] == 0xA8 && pbCode[5] == 0x01)
+			{
+				pbCode += 6;
+			}
+			else
+				pbCode = NULL;
+
+			// 74 XX          | je XXXXXXXX
+			// -or-
+			// 0F 84 XXXXXXXX | je XXXXXXXX
+			if(pbCode &&
+				pbCode[0] == 0x74)
+			{
+				pbCode += 2;
+			}
+			else if(pbCode &&
+				pbCode[0] == 0x0F && pbCode[1] == 0x84)
+			{
+				pbCode += 6;
+			}
+			else
+				pbCode = NULL;
+
+			if(pbCode)
+			{
+				selective_combining_hack = 3;
+			}
+		}
+		else if(nWinVersion <= WIN_VERSION_10_20H1)
+		{
+			// 8B45 XX | mov eax,dword ptr ss:[rbp-XX]
+			// 33D2    | xor edx,edx
+			// A8 01   | test al,1
+			// -or-
+			// 8b5424XX | mov     edx,dword ptr [rsp+XX]
+			// f6c201   | test    dl,1
+			if(pbCode[0] == 0x8B && pbCode[1] == 0x45 &&
+				pbCode[3] == 0x33 && pbCode[4] == 0xD2 &&
+				pbCode[5] == 0xA8 && pbCode[6] == 0x01)
+			{
+				pbCode += 7;
+			}
+			else if(pbCode[0] == 0x8B && pbCode[1] == 0x54 && pbCode[2] == 0x24 &&
+				pbCode[4] == 0xF6 && pbCode[5] == 0xC2 && pbCode[6] == 0x01)
+			{
+				pbCode += 7;
+			}
+			else
+				pbCode = NULL;
+
+			// 74 XX          | je XXXXXXXX
+			// -or-
+			// 0F 84 XXXXXXXX | je XXXXXXXX
+			if(pbCode &&
+				pbCode[0] == 0x74)
+			{
+				pbCode += 2;
+			}
+			else if(pbCode &&
+				pbCode[0] == 0x0F && pbCode[1] == 0x84)
+			{
+				pbCode += 6;
+			}
+			else
+				pbCode = NULL;
+
+			if(pbCode)
+			{
+				selective_combining_hack = 3;
+			}
+		}
+		else // if(nWinVersion >= WIN_VERSION_11_21H2)
+		{
+			// 8B4424 XX  | mov eax,dword ptr ss:[rsp+XX]
+			// 48:83C4 28 | add rsp,28
+			// C3         | ret
+			if(pbCode[0] == 0x8B && pbCode[1] == 0x44 && pbCode[2] == 0x24 &&
+				pbCode[4] == 0x48 && pbCode[5] == 0x83 && pbCode[6] == 0xC4 && pbCode[7] == 0x28 &&
+				pbCode[8] == 0xC3)
+			{
+				// Skip the frame of CTaskListWnd::_GetUserPreferences
+				// and get the next return address.
+				pbCode = *(ppAddressOfReturnAddress + 6);
+			}
+			else
+				pbCode = NULL;
+
+			// 41:83CC FF | or r12d,FFFFFFFF
+			// 40:84C7    | test dil,al
+			// -or-
+			// 41:83CF FF | or r15d,FFFFFFFF  
+			// 40:84C7    | test dil,al
+			if(pbCode &&
+				pbCode[0] == 0x41 && pbCode[1] == 0x83 &&
+				(pbCode[2] == 0xCC || pbCode[2] == 0xCF) && pbCode[3] == 0xFF &&
+				pbCode[4] == 0x40 && pbCode[5] == 0x84 && pbCode[6] == 0xC7)
+			{
+				pbCode += 7;
+			}
+			else
+				pbCode = NULL;
+
+			// 74 XX          | je XXXXXXXX
+			// -or-
+			// 0F 84 XXXXXXXX | je XXXXXXXX
+			if(pbCode &&
+				pbCode[0] == 0x74)
+			{
+				pbCode += 2;
+			}
+			else if(pbCode &&
+				pbCode[0] == 0x0F && pbCode[1] == 0x84)
+			{
+				pbCode += 6;
+			}
+			else
+				pbCode = NULL;
+
+			if(pbCode)
+			{
+				selective_combining_hack = 3;
+			}
+		}
+#else // !_WIN64
+		// 8B4424 XX | MOV EAX,DWORD PTR [ESP+XX]
+		if(pbCode[0] == 0x8B && pbCode[1] == 0x44 && pbCode[2] == 0x24)
+		{
+			pbCode += 4;
+		}
+		// 8B8424 XXXXXXXX | MOV EAX,DWORD PTR [ESP+XX]
+		else if(pbCode[0] == 0x8B && pbCode[1] == 0x84 && pbCode[2] == 0x24)
+		{
+			pbCode += 7;
+		}
+		// 8B85 XXXXXXXX | MOV EAX,DWORD PTR [EBP-XX]
+		else if(pbCode[0] == 0x8B && pbCode[1] == 0x85)
+		{
+			pbCode += 6;
+		}
+		else
+			pbCode = NULL;
+
+		if(nWinVersion == WIN_VERSION_10_T1 || nWinVersion >= WIN_VERSION_10_R5)
+		{
+			// E9 XXXXXXXX | JMP XXXXXXXX
+			if(pbCode &&
+				pbCode[0] == 0xE9)
+			{
+				INT32 nOffset = *(INT32 *)(pbCode + 1);
+				pbCode += 5;
+				pbCode += nOffset;
+			}
+			else
+				pbCode = NULL;
+		}
+		else if(nWinVersion >= WIN_VERSION_10_R2 && nWinVersion <= WIN_VERSION_10_R3)
+		{
+			// 8B7424 XX | MOV ESI,DWORD PTR [ESP+XX]
+			if(pbCode &&
+				pbCode[0] == 0x8B && pbCode[1] == 0x74 && pbCode[2] == 0x24)
+			{
+				pbCode += 4;
+			}
+			else
+				pbCode = NULL;
+		}
+
+		// A8 01 | TEST AL, 01
+		if(pbCode &&
+			pbCode[0] == 0xA8 && pbCode[1] == 0x01)
+		{
+			pbCode += 2;
+
+			// 0F84 XXXXXXXX | JZ XXXXXXXX
+			// -OR-
+			// 74 XX | JZ SHORT XXXXXXXX
+			if((pbCode[0] == 0x0F && pbCode[1] == 0x84) ||
+				pbCode[0] == 0x74)
+			{
+				selective_combining_hack = 3;
+			}
+		}
+#endif // WIN64
 	}
 
 	// A hack for selective combining.
@@ -3345,7 +4154,7 @@ static BOOL CheckCombineButtonGroup(LONG_PTR *button_group)
 	BOOL bCombine;
 	LONG_PTR lpMMTaskListLongPtr;
 
-	task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
+	task_group = (LONG_PTR *)button_group[DO2(3, 4)];
 	pAppId = *EV_TASKGROUP_APPID(task_group);
 
 	if(pAppId && GetAppidListValue(AILIST_COMBINE, pAppId, &nCombineListValue))
@@ -3394,13 +4203,13 @@ static BOOL ButtonGroupCombine(LONG_PTR *button_group, BOOL bCombine)
 	else
 		lpMMTaskListLongPtr = lpTaskListLongPtr;
 
-	button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
+	button_group_type = (int)button_group[DO2(6, 8)];
 	if(bCombine)
 	{
 		if(button_group_type != 1)
 			return FALSE;
 
-		plp = (LONG_PTR *)button_group[DO2(5, 0 /* omitted from public code */)];
+		plp = (LONG_PTR *)button_group[DO2(5, 7)];
 		buttons_count = (int)plp[0];
 		if(buttons_count < 2)
 			return FALSE;
@@ -3451,17 +4260,17 @@ static BOOL DragWithinGroup(LONG_PTR *button_group_tracked, int button_index_tra
 	LONG_PTR *task_item_from, *task_item_to;
 	int i;
 
-	button_group_type = (int)button_group_tracked[DO2(6, 0 /* omitted from public code */)];
+	button_group_type = (int)button_group_tracked[DO2(6, 8)];
 	if(button_group_type == 1 || button_group_type == 3)
 	{
-		plp = (LONG_PTR *)button_group_tracked[DO2(5, 0 /* omitted from public code */)];
+		plp = (LONG_PTR *)button_group_tracked[DO2(5, 7)];
 
 		buttons_count = (int)plp[0];
 		buttons = (LONG_PTR **)plp[1];
 
 		for(i = 0; i < buttons_count; i++)
 		{
-			task_item_from = (LONG_PTR *)buttons[i][DO2(3, 0 /* omitted from public code */)];
+			task_item_from = (LONG_PTR *)buttons[i][DO2(3, 4)];
 
 			if(GetTaskItemWnd(task_item_from) == hDragWithinGroupsWnd)
 			{
@@ -3469,8 +4278,8 @@ static BOOL DragWithinGroup(LONG_PTR *button_group_tracked, int button_index_tra
 
 				if(button_index_tracked >= 0 && button_index_tracked < buttons_count && i != button_index_tracked)
 				{
-					task_group = (LONG_PTR *)button_group_tracked[DO2(3, 0 /* omitted from public code */)];
-					task_item_to = (LONG_PTR *)buttons[button_index_tracked][DO2(3, 0 /* omitted from public code */)];
+					task_group = (LONG_PTR *)button_group_tracked[DO2(3, 4)];
+					task_item_to = (LONG_PTR *)buttons[button_index_tracked][DO2(3, 4)];
 
 					TaskbarMoveTaskInGroup(task_group, task_item_from, task_item_to);
 				}
@@ -3490,12 +4299,12 @@ static BOOL DragBetweenGroups(LONG_PTR *button_group_tracked)
 	int button_group_type;
 	int nListValue;
 
-	task_group = (LONG_PTR *)button_group_tracked[DO2(3, 0 /* omitted from public code */)];
+	task_group = (LONG_PTR *)button_group_tracked[DO2(3, 4)];
 	pAppId = *EV_TASKGROUP_APPID(task_group);
 	if(!pAppId)
 		return FALSE;
 
-	button_group_type = (int)button_group_tracked[DO2(6, 0 /* omitted from public code */)];
+	button_group_type = (int)button_group_tracked[DO2(6, 8)];
 	if(button_group_type == 1 || button_group_type == 3)
 	{
 		if(!IsAppIdARandomGroup(pAppId))
@@ -3599,7 +4408,7 @@ static LONG_PTR *ButtonGroupNextToMousePos(LONG_PTR lpMMTaskListLongPtr, HWND hE
 	// Skip all buttons which are currently not visible (e.g. multipage taskbar)
 	for(i = 0; i < button_groups_count; i++)
 	{
-		prcGroup = *(RECT **)(button_groups[i][DO2(4, 0 /* omitted from public code */)] + sizeof(LONG_PTR));
+		prcGroup = *(RECT **)(button_groups[i][DO2(4, 6)] + sizeof(LONG_PTR));
 		ptGroupCenter.x = prcGroup->left + (prcGroup->right - prcGroup->left) / 2;
 		ptGroupCenter.y = prcGroup->top + (prcGroup->bottom - prcGroup->top) / 2;
 		if(PtInRect(&rcVisibleTaskList, ptGroupCenter))
@@ -3614,23 +4423,23 @@ static LONG_PTR *ButtonGroupNextToMousePos(LONG_PTR lpMMTaskListLongPtr, HWND hE
 	{
 		if(hExcludeWnd)
 		{
-			button_group_type = (int)button_groups[i][DO2(6, 0 /* omitted from public code */)];
+			button_group_type = (int)button_groups[i][DO2(6, 8)];
 			if(button_group_type == 1 || button_group_type == 3)
 			{
-				plp = (LONG_PTR *)button_groups[i][DO2(5, 0 /* omitted from public code */)];
+				plp = (LONG_PTR *)button_groups[i][DO2(5, 7)];
 
 				buttons_count = (int)plp[0];
 				if(buttons_count == 1)
 				{
 					buttons = (LONG_PTR **)plp[1];
-					task_item = (LONG_PTR *)buttons[0][DO2(3, 0 /* omitted from public code */)];
+					task_item = (LONG_PTR *)buttons[0][DO2(3, 4)];
 					if(GetTaskItemWnd(task_item) == hExcludeWnd)
 						continue; // skip button group
 				}
 			}
 		}
 
-		prcGroup = *(RECT **)(button_groups[i][DO2(4, 0 /* omitted from public code */)] + sizeof(LONG_PTR));
+		prcGroup = *(RECT **)(button_groups[i][DO2(4, 6)] + sizeof(LONG_PTR));
 		ptGroupCenter.x = prcGroup->left + (prcGroup->right - prcGroup->left) / 2;
 		ptGroupCenter.y = prcGroup->top + (prcGroup->bottom - prcGroup->top) / 2;
 		if(!PtInRect(&rcVisibleTaskList, ptGroupCenter))
@@ -3779,7 +4588,7 @@ static void OnButtonGroupInserted(LONG_PTR lpMMTaskListLongPtr, int nButtonGroup
 	LONG_PTR **button_groups = (LONG_PTR **)plp[1];
 	LONG_PTR *button_group = button_groups[nButtonGroupIndex];
 
-	plp = (LONG_PTR *)button_group[DO2(5, 0 /* omitted from public code */)];
+	plp = (LONG_PTR *)button_group[DO2(5, 7)];
 	if(!plp)
 		return;
 
@@ -3788,7 +4597,7 @@ static void OnButtonGroupInserted(LONG_PTR lpMMTaskListLongPtr, int nButtonGroup
 	if(buttons_count == 0)
 		return;
 
-	LONG_PTR *task_group = (LONG_PTR *)button_group[DO2(3, 0 /* omitted from public code */)];
+	LONG_PTR *task_group = (LONG_PTR *)button_group[DO2(3, 4)];
 	plp = (LONG_PTR *)task_group[4];
 	if(!plp)
 		return;
@@ -3830,7 +4639,7 @@ static void OnButtonGroupInserted(LONG_PTR lpMMTaskListLongPtr, int nButtonGroup
 		task_group_virtual_desktop_released = NULL;
 		task_item_virtual_desktop_released = NULL;
 
-		LONG_PTR this_ptr = (LONG_PTR)(lpTaskSwLongPtr + 0 /* omitted from public code */);
+		LONG_PTR this_ptr = (LONG_PTR)(lpTaskSwLongPtr + DO5_3264(0, 0, ,, ,, ,, 0x38, 0x70));
 		plp = *(LONG_PTR **)this_ptr;
 
 		ReleaseSRWLockExclusive(pArrayLock);
@@ -3858,7 +4667,7 @@ static void OnButtonGroupInserted(LONG_PTR lpMMTaskListLongPtr, int nButtonGroup
 				for(int j = nButtonGroupIndex + 1; j < button_groups_count; j++)
 				{
 					LONG_PTR *check_button_group = button_groups[j];
-					LONG_PTR *check_task_group = (LONG_PTR *)check_button_group[DO2(3, 0 /* omitted from public code */)];
+					LONG_PTR *check_task_group = (LONG_PTR *)check_button_group[DO2(3, 4)];
 					if(task_group_virtual_desktop_released == check_task_group)
 					{
 						// The current item in lpArray is from the same group
@@ -3879,7 +4688,7 @@ static void OnButtonGroupInserted(LONG_PTR lpMMTaskListLongPtr, int nButtonGroup
 		for(int j = 0; j < buttons_count; j++)
 		{
 			LONG_PTR *button = buttons[j];
-			LONG_PTR *task_item = (LONG_PTR *)button[DO2(3, 0 /* omitted from public code */)];
+			LONG_PTR *task_item = (LONG_PTR *)button[DO2(3, 4)];
 
 			if(task_item_virtual_desktop_released == task_item)
 			{
@@ -4009,10 +4818,10 @@ void ComFuncTaskListBeforeLButtonUp(LONG_PTR lpMMTaskListLongPtr, DWORD *pdwOldU
 		LONG_PTR *button_group = *EV_MM_TASKLIST_PRESSED_BUTTON_GROUP(lpMMTaskListLongPtr);
 		if(button_group)
 		{
-			int button_group_type = (int)button_group[DO2(6, 0 /* omitted from public code */)];
+			int button_group_type = (int)button_group[DO2(6, 8)];
 			if(button_group_type == 1)
 			{
-				LONG_PTR *plp = (LONG_PTR *)button_group[DO2(5, 0 /* omitted from public code */)];
+				LONG_PTR *plp = (LONG_PTR *)button_group[DO2(5, 7)];
 
 				int buttons_count = (int)plp[0];
 				LONG_PTR **buttons = (LONG_PTR **)plp[1];
@@ -4078,11 +4887,11 @@ BOOL ComFuncTaskListRightDragInit(LONG_PTR lpMMTaskListLongPtr)
 	if(button_index_tracked < 0)
 		return FALSE;
 
-	button_group_type = (int)button_group_tracked[DO2(6, 0 /* omitted from public code */)];
+	button_group_type = (int)button_group_tracked[DO2(6, 8)];
 	if(button_group_type != 1)
 		return FALSE;
 
-	plp = (LONG_PTR *)button_group_tracked[DO2(5, 0 /* omitted from public code */)];
+	plp = (LONG_PTR *)button_group_tracked[DO2(5, 7)];
 	buttons_count = (int)plp[0];
 	if(buttons_count - 1 < button_index_tracked)
 		return FALSE;
@@ -4137,7 +4946,7 @@ BOOL ComFuncTaskListMouseWheel(LONG_PTR lpMMTaskListLongPtr, short delta)
 		button_group_tracked = TaskbarGetTrackedButtonGroup(lpMMTaskListLongPtr);
 		if(button_group_tracked)
 		{
-			task_group = (LONG_PTR *)button_group_tracked[DO2(3, 0 /* omitted from public code */)];
+			task_group = (LONG_PTR *)button_group_tracked[DO2(3, 4)];
 			pAppId = *EV_TASKGROUP_APPID(task_group);
 			if(pAppId)
 			{
@@ -4173,7 +4982,7 @@ void ComFuncThumbnailWndBeforePaint(LONG_PTR lpMMThumbnailLongPtr)
 		{
 			POINT pt = { -13, -37 }; // 1337 \m/
 
-			LONG_PTR this_ptr = (LONG_PTR)(lpMMThumbnailLongPtr + DO2_3264(0x10, 0x20, 0, 0 /* omitted from public code */));
+			LONG_PTR this_ptr = (LONG_PTR)(lpMMThumbnailLongPtr + DO5_3264(0x10, 0x20, ,, ,, ,, 0x08, 0x10));
 			LONG_PTR *plp = *(LONG_PTR **)this_ptr;
 
 			// CTaskListThumbnailWnd::ThumbIndexFromPoint(this, ppt)
@@ -4224,11 +5033,11 @@ BOOL ComFuncMoveDetachedToCursor()
 	button_groups_count = (int)plp[0];
 	button_groups = (LONG_PTR **)plp[1];
 
-	button_group_type = (int)button_groups[button_groups_count - 1][DO2(6, 0 /* omitted from public code */)];
+	button_group_type = (int)button_groups[button_groups_count - 1][DO2(6, 8)];
 	if(button_group_type != 1)
 		return FALSE;
 
-	plp = (LONG_PTR *)button_groups[button_groups_count - 1][DO2(5, 0 /* omitted from public code */)];
+	plp = (LONG_PTR *)button_groups[button_groups_count - 1][DO2(5, 7)];
 	buttons_count = (int)plp[0];
 	buttons = (LONG_PTR **)plp[1];
 
@@ -4324,17 +5133,17 @@ static BOOL MMMoveNearMatching(LONG_PTR lpMMTaskListLongPtr, HWND hButtonWnd)
 
 		if(button_groups_count > 1)
 		{
-			button_group_type = (int)button_groups[button_groups_count - 1][DO2(6, 0 /* omitted from public code */)];
+			button_group_type = (int)button_groups[button_groups_count - 1][DO2(6, 8)];
 			if(button_group_type == 1)
 			{
-				plp = (LONG_PTR *)button_groups[button_groups_count - 1][DO2(5, 0 /* omitted from public code */)];
+				plp = (LONG_PTR *)button_groups[button_groups_count - 1][DO2(5, 7)];
 
 				buttons_count = (int)plp[0];
 				buttons = (LONG_PTR **)plp[1];
 
 				if(buttons_count == 1 && GetButtonWnd(buttons[0]) == hButtonWnd)
 				{
-					task_group = (LONG_PTR *)button_groups[button_groups_count - 1][DO2(3, 0 /* omitted from public code */)];
+					task_group = (LONG_PTR *)button_groups[button_groups_count - 1][DO2(3, 4)];
 
 					pItemIdList = (ITEMIDLIST *)task_group[6];
 
@@ -4343,7 +5152,7 @@ static BOOL MMMoveNearMatching(LONG_PTR lpMMTaskListLongPtr, HWND hButtonWnd)
 					{
 						for(i = (button_groups_count - 1) - 1; i >= 0; i--)
 						{
-							task_group = (LONG_PTR *)button_groups[i][DO2(3, 0 /* omitted from public code */)];
+							task_group = (LONG_PTR *)button_groups[i][DO2(3, 4)];
 
 							hr = ((HRESULT(__stdcall *)(LONG_PTR *, HWND, ITEMIDLIST *, WCHAR *, int *, LONG_PTR **))pDoesWindowMatch)
 								(task_group, hButtonWnd, pItemIdList, pAppId, &nMatch, NULL);

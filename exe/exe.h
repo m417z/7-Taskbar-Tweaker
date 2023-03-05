@@ -87,7 +87,7 @@ LRESULT OnRegisteredTweakerMsg(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
 BOOL LoadCustomIcon(HICON *phSmall, HICON *phLarge);
 HBRUSH CreateBgBrush(HWND hWnd);
 BOOL IsHighContrastOn(void);
-int FindCmdLineSwitch(WCHAR *pSwitch);
+int FindCmdLineSwitch(const WCHAR *pSwitch);
 void CustomizeSystemMenu(HWND hWnd);
 void InitNotifyIconData(HWND hWnd, DLG_PARAM *pDlgParam);
 void UpdateNotifyIconData(HWND hWnd, DLG_PARAM *pDlgParam);

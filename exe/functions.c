@@ -43,9 +43,9 @@ BOOL RegisterDialogClass(LPCTSTR lpszClassName, HINSTANCE hInstance)
 	return RegisterClass(&wndcls);
 }
 
-WCHAR *LoadStrFromRsrc(UINT uStrId)
+const WCHAR *LoadStrFromRsrc(UINT uStrId)
 {
-	WCHAR *pStr;
+	const WCHAR *pStr;
 
 	if(!LoadString(NULL, uStrId, (WCHAR *)&pStr, 0))
 		pStr = L"(Could not load resource)";
@@ -53,7 +53,7 @@ WCHAR *LoadStrFromRsrc(UINT uStrId)
 	return pStr;
 }
 
-UINT GetUniqueTempDir(TCHAR *pPrefixString, TCHAR *pDir)
+UINT GetUniqueTempDir(const TCHAR *pPrefixString, TCHAR *pDir)
 {
 	TCHAR *p;
 	UINT uTempLen;
@@ -98,9 +98,9 @@ UINT GetUniqueTempDir(TCHAR *pPrefixString, TCHAR *pDir)
 	return 0;
 }
 
-BOOL RemoveDirectoryOnReboot(TCHAR *pDir)
+BOOL RemoveDirectoryOnReboot(const TCHAR *pDir)
 {
-	char *pVBScriptSrc =
+	const char *pVBScriptSrc =
 		"Sub Main()\r\n"
 		"\r\n"
 		"Set objFSO = CreateObject(\"Scripting.FileSystemObject\")\r\n"
@@ -186,7 +186,7 @@ BOOL RemoveDirectoryOnReboot(TCHAR *pDir)
 	return FALSE;
 }
 
-BOOL SimpleCreateProcess(WCHAR *pApplicationName, WCHAR *pCommandLine, BOOL bWait)
+BOOL SimpleCreateProcess(const WCHAR *pApplicationName, WCHAR *pCommandLine, BOOL bWait)
 {
 	STARTUPINFO si;
 	PROCESS_INFORMATION pi;

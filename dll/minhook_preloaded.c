@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "minhook_preloaded.h"
 
-static volatile long nHookProcCallCounter;
+static volatile LONG nHookProcCallCounter;
 
 #define MHP_HOOK_FUNCTION_AUX(func_name, ret_type, calling_conv, func_args_w_types, func_args, hook_func_args) \
 	static volatile func_name##_hook_type pHooked##func_name; \
