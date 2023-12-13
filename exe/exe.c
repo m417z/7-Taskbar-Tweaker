@@ -88,7 +88,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		!CompareWindowsBuildNumber(19045) &&
 		!CompareWindowsBuildNumber(20348) &&
 		!CompareWindowsBuildNumber(22000) &&
-		!CompareWindowsBuildNumber(22621)
+		!CompareWindowsBuildNumber(22621) &&
+		!CompareWindowsBuildNumber(22631)
 	)
 	{
 		if(MessageBox(NULL, LoadStrFromRsrc(IDS_BUILD_WARNING_TEXT), LoadStrFromRsrc(IDS_BUILD_WARNING_TITLE), MB_ICONEXCLAMATION | MB_YESNO) != IDYES)

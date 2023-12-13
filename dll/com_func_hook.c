@@ -2986,7 +2986,7 @@ static LONG_PTR __stdcall ButtonGroupHasItemAnimationHook(LONG_PTR *button_group
 	int nAnimationTypeHotTracking;
 	int nAnimationTypeHotTrackOut;
 	int nAnimationTypeActivate;
-	int nAnimationTypeDectivate;
+	int nAnimationTypeDeactivate;
 
 	// CTaskListWnd::_StartPlateAnimations
 	if(nWinVersion >= WIN_VERSION_11_21H2)
@@ -2994,14 +2994,14 @@ static LONG_PTR __stdcall ButtonGroupHasItemAnimationHook(LONG_PTR *button_group
 		nAnimationTypeHotTracking = 14;
 		nAnimationTypeHotTrackOut = 15;
 		nAnimationTypeActivate = 12;
-		nAnimationTypeDectivate = 13;
+		nAnimationTypeDeactivate = 13;
 	}
 	else
 	{
 		nAnimationTypeHotTracking = 12;
 		nAnimationTypeHotTrackOut = 13;
 		nAnimationTypeActivate = 10;
-		nAnimationTypeDectivate = 11;
+		nAnimationTypeDeactivate = 11;
 	}
 
 	if(nAnimationType == nAnimationTypeHotTracking)
@@ -3036,7 +3036,7 @@ static LONG_PTR __stdcall ButtonGroupHasItemAnimationHook(LONG_PTR *button_group
 			active_button_group = button_group;
 			active_button_index = nAnimationInfo;
 		}
-		else if(nAnimationType == nAnimationTypeDectivate)
+		else if(nAnimationType == nAnimationTypeDeactivate)
 		{
 			if(active_button_group == button_group && active_button_index == nAnimationInfo)
 			{

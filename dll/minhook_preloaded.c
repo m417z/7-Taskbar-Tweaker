@@ -31,6 +31,7 @@ static volatile LONG nHookProcCallCounter;
 
 #define MHP_CREATE_HOOK(func_name) MH_CreateHook(func_name, func_name##_MHP, (void **)&Original##func_name)
 
+MHP_HOOK_FUNCTION(GetKeyState, SHORT, WINAPI, MHP_FUNCTION_PARAMS(int nVirtKey), MHP_FUNCTION_PARAMS(nVirtKey));
 MHP_HOOK_FUNCTION(GetWindowLongW, LONG, WINAPI, MHP_FUNCTION_PARAMS(HWND hWnd, int nIndex), MHP_FUNCTION_PARAMS(hWnd, nIndex));
 MHP_HOOK_FUNCTION(PostMessageW, BOOL, WINAPI, MHP_FUNCTION_PARAMS(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam), MHP_FUNCTION_PARAMS(hWnd, Msg, wParam, lParam));
 MHP_HOOK_FUNCTION(GetClientRect, BOOL, WINAPI, MHP_FUNCTION_PARAMS(HWND hWnd, LPRECT lpRect), MHP_FUNCTION_PARAMS(hWnd, lpRect));
@@ -40,6 +41,7 @@ MHP_HOOK_FUNCTION(GetClientRect, BOOL, WINAPI, MHP_FUNCTION_PARAMS(HWND hWnd, LP
 BOOL MHP_Initialize()
 {
 	if(
+		MHP_CREATE_HOOK(GetKeyState) != MH_OK ||
 		MHP_CREATE_HOOK(GetWindowLongW) != MH_OK ||
 		MHP_CREATE_HOOK(PostMessageW) != MH_OK ||
 		MHP_CREATE_HOOK(GetClientRect) != MH_OK
@@ -49,6 +51,7 @@ BOOL MHP_Initialize()
 	}
 
 	if(
+		MH_QueueEnableHook(GetKeyState) != MH_OK ||
 		MH_QueueEnableHook(GetWindowLongW) != MH_OK ||
 		MH_QueueEnableHook(PostMessageW) != MH_OK ||
 		MH_QueueEnableHook(GetClientRect) != MH_OK

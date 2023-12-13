@@ -107,7 +107,7 @@ static void UnsubclassSecondaryTaskListWindows(LONG_PTR lpSecondaryTaskListLongP
 static void GetSecondaryTaskListWindows(LONG_PTR lpSecondaryTaskListLongPtr,
 	HWND *phSecondaryTaskbarWnd, HWND *phSecondaryTaskBandWnd, HWND *phSecondaryTaskListWnd, HWND *phSecondaryThumbnailWnd);
 static HWND WINAPI GetCaptureHook(void);
-static SHORT WINAPI GetKeyStateInvertShiftHook(int nVirtKey);
+static SHORT WINAPI GetKeyStateInvertShiftHook(void *pRetAddr, int nVirtKey);
 static BOOL WINAPI SetWindowPosHook(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int cx, int cy, UINT uFlags);
 static LONG WINAPI GetWindowLongWAlwaysTopmostHook(void *pRetAddr, HWND hWnd, int nIndex);
 static BOOL WINAPI PostMessageWIgnoreTopmostHook(void *pRetAddr, HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam);
@@ -147,8 +147,6 @@ static volatile int wnd_proc_call_counter;
 // hooks
 static void **ppGetCapture;
 POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prGetCapture);
-static void **ppGetKeyState;
-POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prGetKeyState);
 static void **ppMulDiv;
 POINTER_REDIRECTION_VAR(static POINTER_REDIRECTION prMulDiv);
 static void **ppSHChangeNotification_Lock;
@@ -201,10 +199,7 @@ DWORD WndProcInit(int pOptions[OPTS_COUNT])
 
 	GetModuleInformation(GetCurrentProcess(), hExplorer, &ExplorerModuleInfo, sizeof(MODULEINFO));
 
-	if(
-		!(ppGetCapture = FindImportPtr(hExplorer, "user32.dll", "GetCapture")) ||
-		!(ppGetKeyState = FindImportPtr(hExplorer, "user32.dll", "GetKeyState"))
-	)
+	if(!(ppGetCapture = FindImportPtr(hExplorer, "user32.dll", "GetCapture")))
 		return LIB_ERR_FIND_IMPORT_1;
 
 	if(nWinVersion >= WIN_VERSION_10_R2)
@@ -2403,7 +2398,7 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 {
 	static int nDoubleClickOption = 0;
 	static BOOL bControllingContextMenu = FALSE;
-	static BOOL bImmidiateTooltip = FALSE;
+	static BOOL bImmediateTooltip = FALSE;
 	static DWORD dwLastWheelMinimizeTickCount, dwLastWheelRestoreTickCount;
 	LONG_PTR lpMMTaskListLongPtr;
 	int nOption;
@@ -2723,11 +2718,11 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 					if(((nOption == 5) ? GetKeyState(VK_SHIFT) < 0 : GetKeyState(VK_SHIFT) >= 0) && !bGetKeyStateHooked)
 					{
 						bGetKeyStateHooked = TRUE;
-						PointerRedirectionAdd(ppGetKeyState, GetKeyStateInvertShiftHook, &prGetKeyState);
+						MHP_HookGetKeyState(GetKeyStateInvertShiftHook);
 
 						result = DefSubclassProc(hWnd, WM_RBUTTONUP, wParam & ~(MK_SHIFT | MK_CONTROL), lParam);
 
-						PointerRedirectionRemove(ppGetKeyState, &prGetKeyState);
+						MHP_HookGetKeyState(NULL);
 						bGetKeyStateHooked = FALSE;
 					}
 					else
@@ -2807,11 +2802,11 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 		if(!bControllingContextMenu && nOptions[OPT_RCLICK] == 1 && !bGetKeyStateHooked)
 		{
 			bGetKeyStateHooked = TRUE;
-			PointerRedirectionAdd(ppGetKeyState, GetKeyStateInvertShiftHook, &prGetKeyState);
+			MHP_HookGetKeyState(GetKeyStateInvertShiftHook);
 
 			result = DefSubclassProc(hWnd, uMsg, wParam, lParam);
 
-			PointerRedirectionRemove(ppGetKeyState, &prGetKeyState);
+			MHP_HookGetKeyState(NULL);
 			bGetKeyStateHooked = FALSE;
 		}
 		else
@@ -2861,7 +2856,7 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 		{
 			if(*EV_MM_TASKLIST_TOOLTIP_TIMER_ID(lpMMTaskListLongPtr) == 2)
 			{
-				if(nOptions[OPT_HOVER] == 2 && bImmidiateTooltip) // Tooltip
+				if(nOptions[OPT_HOVER] == 2 && bImmediateTooltip) // Tooltip
 				{
 					ShowWindow(*EV_MM_TASKLIST_TOOLTIP_WND(lpMMTaskListLongPtr), SW_HIDE);
 					DefSubclassProc(hWnd, WM_TIMER, 2, 0);
@@ -2887,7 +2882,7 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 			*EV_MM_TASKLIST_TOOLTIP_TIMER_ID(lpMMTaskListLongPtr) = 2;
 			DefSubclassProc(hWnd, WM_TIMER, 2, 0);
 
-			bImmidiateTooltip = TRUE;
+			bImmediateTooltip = TRUE;
 		}
 		else if(nOptions[OPT_HOVER] == 3) // Nothing
 			result = DefWindowProc(hWnd, uMsg, wParam, lParam);
@@ -2900,7 +2895,7 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 
 		result = DefSubclassProc(hWnd, uMsg, wParam, lParam);
 
-		bImmidiateTooltip = FALSE;
+		bImmediateTooltip = FALSE;
 		break;
 
 	case WM_MOUSEWHEEL:
@@ -4276,9 +4271,9 @@ static HWND WINAPI GetCaptureHook(void)
 	return ((HWND(WINAPI *)())prGetCapture.pOriginalAddress)();
 }
 
-static SHORT WINAPI GetKeyStateInvertShiftHook(int nVirtKey)
+static SHORT WINAPI GetKeyStateInvertShiftHook(void *pRetAddr, int nVirtKey)
 {
-	SHORT nRet = ((SHORT(WINAPI *)(int))prGetKeyState.pOriginalAddress)(nVirtKey);
+	SHORT nRet = OriginalGetKeyState(nVirtKey);
 
 	if(GetCurrentThreadId() == dwTaskbarThreadId)
 	{

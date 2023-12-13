@@ -178,6 +178,11 @@ size_t *EV_APP_VIEW_MGR_APP_ARRAY_SIZE(LONG_PTR lp);
 //////////////////////////////////////////////////////////////////////////
 // Functions
 
+// CTray::SendStateCaptureTelemetry
+#define FUNC_CTray_SendStateCaptureTelemetry(plp)                    (plp[3])
+
+////////////////////
+
 // CTaskBand::GetUserPreferences
 #define FUNC_CTaskBand_GetUserPreferences(plp)                       (plp[DO5(23, 7, , , 6)])
 
@@ -202,10 +207,12 @@ size_t *EV_APP_VIEW_MGR_APP_ARRAY_SIZE(LONG_PTR lp);
 ////////////////////
 
 // CTaskBand::ViewVirtualDesktopChanged(this, application_view)
-#define FUNC_CTaskBand_ViewVirtualDesktopChanged(plp)                ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR))plp[DO15(0, , , , 7, , , , , , , , , 9, 10)])
+#define FUNC_CTaskBand_ViewVirtualDesktopChanged(plp)                ((LONG_PTR(__stdcall *)(LONG_PTR, LONG_PTR))plp[DO17(0, , , , 7, , , , , , , , , 9, 10, \
+                                                                         nExplorerQFE <= 2070 ? 10 : 9, 9)])
 
 // CTaskBand::CurrentVirtualDesktopChanged
-#define FUNC_CTaskBand_CurrentVirtualDesktopChanged(plp)             (plp[DO15(0, , , , 8, , , , , , , , , 10, 11)])
+#define FUNC_CTaskBand_CurrentVirtualDesktopChanged(plp)             (plp[DO17(0, , , , 8, , , , , , , , , 10, 11, \
+                                                                         nExplorerQFE <= 2070 ? 11 : 10, 10)])
 
 ////////////////////
 
