@@ -366,7 +366,7 @@ BOOL *EV_TASKBAR_TOPMOST_EX_FLAG(void)
 	return (BOOL *)(lpTaskbarLongPtr + EV_TASKBAR_OFFSET_FIX(
 		DO14_3264(0xD98, 0xFAC, 0x210, 0x2CC, ,, 0x218, 0x2DC, 0x210, 0x2D0, ,, 0x228, 0x2F0, 0x1C + 0xD0, 0x38 + 0x130, ,, ,, ,,
 			0x1C + (nExplorerQFE <= 997 ? 0xD0 : 0xD4), 0x38 + 0x130,
-			0x1C + (nExplorerQFE <= 388 ? 0xD0 : (nExplorerQFE <= 572 ? 0xF4 : 0xF8)), 0x38 + (nExplorerQFE <= 388 ? 0x130 : 0x168),
+			0x1C + (nExplorerQFE <= 388 ? 0xD0 : (nExplorerQFE <= 572 ? 0xF4 : (nExplorerQFE <= 4123 ? 0xF8 : 0xFC))), 0x38 + (nExplorerQFE <= 388 ? 0x130 : (nExplorerQFE <= 4123 ? 0x168 : 0x170)),
 			0x38 + 0x170)));
 }
 
@@ -525,7 +525,7 @@ LONG_PTR *EV_SECONDARY_TASKBAR_SEARCH_LONG_PTR(LONG_PTR lp)
 {
 	return (LONG_PTR *)(lp + DO16_3264(0, 0, ,, ,, ,, 0xB8, 0xF0, 0xBC, 0xF8, 0xC0, 0x100, ,, ,, ,, ,,
 		nExplorerQFE <= 1500 ? 0xC0 : 0xC4, 0x100,
-		nExplorerQFE <= 928 ? 0xC0 : 0xC4, 0x100,
+		nExplorerQFE <= 928 ? 0xC0 : (nExplorerQFE <= 4648 ? 0xC4 : 0xCC), nExplorerQFE <= 4648 ? 0x100 : 0x110,
 		0x100,
 		,
 		0xF8));
@@ -536,7 +536,7 @@ LONG_PTR *EV_SECONDARY_TASKBAR_CORTANA_LONG_PTR(LONG_PTR lp)
 {
 	return (LONG_PTR *)(lp + DO16_3264(0, 0, ,, ,, ,, ,, ,, ,, ,, ,, ,, ,,
 		nExplorerQFE <= 1500 ? 0xC4 : 0xC8, 0x108,
-		nExplorerQFE <= 928 ? 0xC4 : 0xC8, 0x108,
+		nExplorerQFE <= 928 ? 0xC4 : (nExplorerQFE <= 4648 ? 0xC8 : 0xD0), nExplorerQFE <= 4648 ? 0x108 : 0x118,
 		0x108,
 		,
 		0));
@@ -547,7 +547,7 @@ LONG_PTR *EV_SECONDARY_TASKBAR_MULTITASKING_LONG_PTR(LONG_PTR lp)
 {
 	return (LONG_PTR *)(lp + DO16_3264(0, 0, ,, ,, ,, 0xBC, 0xF8, 0xC0, 0x100, 0xC4, 0x108, ,, ,, ,, ,,
 		nExplorerQFE <= 1500 ? 0xC8 : 0xCC, 0x110,
-		nExplorerQFE <= 928 ? 0xC8 : 0xCC, 0x110,
+		nExplorerQFE <= 928 ? 0xC8 : (nExplorerQFE <= 4648 ? 0xCC : 0xD4), nExplorerQFE <= 4648 ? 0x110 : 0x120,
 		0x110,
 		,
 		0x100));
@@ -558,7 +558,7 @@ LONG_PTR *EV_SECONDARY_TASKBAR_CLOCK_LONG_PTR(LONG_PTR lp)
 {
 	return (LONG_PTR *)(lp + DO16_3264(0, 0, ,, ,, ,, ,, ,, 0xC8, 0x110, ,, ,, ,, ,,
 		nExplorerQFE <= 1500 ? 0xCC : 0xD4, nExplorerQFE <= 1500 ? 0x118 : 0x120,
-		nExplorerQFE <= 928 ? 0xCC : 0xD4, nExplorerQFE <= 928 ? 0x118 : 0x120,
+		nExplorerQFE <= 928 ? 0xCC : (nExplorerQFE <= 4648 ? 0xD4 : 0xDC), nExplorerQFE <= 928 ? 0x118 : (nExplorerQFE <= 4648 ? 0x120 : 0x130),
 		0x118,
 		0x120,
 		0x110));
@@ -867,7 +867,7 @@ HWND *EV_TRAY_SEARCH_CONTROL_BUTTON_HWND(LONG_PTR lp)
 {
 	return (HWND *)(lp + DO14_3264(0, 0, ,, ,, ,, ,, ,, ,, ,, ,, ,, ,,
 		nExplorerQFE <= 1500 ? 0 : 0x0C, nExplorerQFE <= 1500 ? 0 : 0x10,
-		nExplorerQFE <= 928 ? 0 : 0x0C, nExplorerQFE <= 928 ? 0 : 0x10,
+		nExplorerQFE <= 928 ? 0 : (nExplorerQFE <= 4170 ? 0x0C : 0x34), nExplorerQFE <= 928 ? 0 : (nExplorerQFE <= 4170 ? 0x10 : 0x40),
 		0x18));
 }
 

@@ -452,7 +452,7 @@ static void MoveResizeWindowCenterMouse(HWND hWnd, long w, long h)
 	HMONITOR hMonitor;
 	LONG_PTR lpSecondaryTaskListLongPtr;
 	LONG_PTR lp;
-	HWND hSecondaryTaskbarWnd;
+	HWND hMMTaskbarWnd;
 	RECT rcExclude;
 	RECT rc, rcList;
 
@@ -469,12 +469,12 @@ static void MoveResizeWindowCenterMouse(HWND hWnd, long w, long h)
 		lp = EV_MM_TASKLIST_SECONDARY_TASK_BAND_LONG_PTR_VALUE(lpSecondaryTaskListLongPtr);
 		lp = EV_SECONDARY_TASK_BAND_SECONDARY_TASKBAR_LONG_PTR_VALUE(lp);
 
-		hSecondaryTaskbarWnd = *EV_SECONDARY_TASKBAR_HWND(lp);
+		hMMTaskbarWnd = *EV_SECONDARY_TASKBAR_HWND(lp);
 	}
 	else
-		hSecondaryTaskbarWnd = hTaskbarWnd;
+		hMMTaskbarWnd = hTaskbarWnd;
 
-	GetWindowRect(hSecondaryTaskbarWnd, &rcExclude);
+	GetWindowRect(hMMTaskbarWnd, &rcExclude);
 
 	CalculatePopupWindowPosition(&pt, &size, TPM_CENTERALIGN | TPM_VCENTERALIGN | TPM_WORKAREA, &rcExclude, &rc);
 

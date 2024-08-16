@@ -89,7 +89,7 @@ DWORD ExplorerInject(HWND hTweakerWnd, UINT uEjectedMsg, LANGID langid, int pOpt
 	// Duplicate some handles
 	HANDLE hRemoteEvent, hRemoteCurrentProcess;
 	DuplicateHandle(GetCurrentProcess(), hCleanEvent, hExplorerProcess, &hRemoteEvent, EVENT_MODIFY_STATE|SYNCHRONIZE, FALSE, 0);
-	DuplicateHandle(GetCurrentProcess(), GetCurrentProcess(), hExplorerProcess, &hRemoteCurrentProcess, PROCESS_DUP_HANDLE|SYNCHRONIZE, FALSE, 0);
+	DuplicateHandle(GetCurrentProcess(), GetCurrentProcess(), hExplorerProcess, &hRemoteCurrentProcess, SYNCHRONIZE, FALSE, 0);
 
 	// Fill the inject struct
 	INJECT_INIT_STRUCT inject_init_struct;

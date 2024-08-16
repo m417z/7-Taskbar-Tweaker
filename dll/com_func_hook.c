@@ -3469,7 +3469,7 @@ static DWORD ManipulateUserPreferences(DWORD dwPreferences, void **ppAddressOfRe
 				decombine_without_labels_hack = 2;
 			}
 		}
-		else if(nWinVersion <= WIN_VERSION_10_20H1)
+		else if(nWinVersion <= WIN_VERSION_SERVER_2022)
 		{
 			// 49 8B 5F XX | mov     rbx,qword ptr [r15+XX] ; <-- registers may differ
 			// ^ 49 8B (bin: 01??????) ??
@@ -3489,6 +3489,7 @@ static DWORD ManipulateUserPreferences(DWORD dwPreferences, void **ppAddressOfRe
 			else
 				pbCode = NULL;
 
+			// Optional (Win10 has it, WIN_VERSION_SERVER_2022 doesn't):
 			// 41 8B 4D 00 | mov     ecx,dword ptr [r13] ; <-- registers may differ
 			// ^ (41 or 45) 8B (bin: 01??????) 00
 			// -or-
@@ -3504,8 +3505,6 @@ static DWORD ManipulateUserPreferences(DWORD dwPreferences, void **ppAddressOfRe
 			{
 				pbCode += 3;
 			}
-			else
-				pbCode = NULL;
 
 			// Optional (early WIN_VERSION_10_20H1):
 			// 89 4D XX    | mov     dword ptr [rbp-XX],ecx
@@ -4005,7 +4004,7 @@ static DWORD ManipulateUserPreferences(DWORD dwPreferences, void **ppAddressOfRe
 				selective_combining_hack = 3;
 			}
 		}
-		else // if(nWinVersion >= WIN_VERSION_11_21H2)
+		else // if(nWinVersion >= WIN_VERSION_SERVER_2022)
 		{
 			// 8B4424 XX  | mov eax,dword ptr ss:[rsp+XX]
 			// 48:83C4 28 | add rsp,28
@@ -4021,12 +4020,20 @@ static DWORD ManipulateUserPreferences(DWORD dwPreferences, void **ppAddressOfRe
 			else
 				pbCode = NULL;
 
+			// WIN_VERSION_SERVER_2022:
+			// A8 01      | test al,1
+			// -or- (Win11)
 			// 41:83CC FF | or r12d,FFFFFFFF
 			// 40:84C7    | test dil,al
-			// -or-
+			// -or- (Win11)
 			// 41:83CF FF | or r15d,FFFFFFFF  
 			// 40:84C7    | test dil,al
 			if(pbCode &&
+				pbCode[0] == 0xA8 && pbCode[1] == 0x01)
+			{
+				pbCode += 2;
+			}
+			else if(pbCode &&
 				pbCode[0] == 0x41 && pbCode[1] == 0x83 &&
 				(pbCode[2] == 0xCC || pbCode[2] == 0xCF) && pbCode[3] == 0xFF &&
 				pbCode[4] == 0x40 && pbCode[5] == 0x84 && pbCode[6] == 0xC7)
