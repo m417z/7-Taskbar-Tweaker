@@ -1052,8 +1052,8 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 		{
 			switch(nTaskbarPos)
 			{
-			case 1: // Is taskbar on top of the screen
-			case 3: // Is taskbar on bottom of the screen
+			case ABE_TOP:
+			case ABE_BOTTOM:
 				cx += GetSystemMetrics(SM_CXICON);
 				break;
 			}
@@ -1078,8 +1078,8 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 				int nSecondaryTaskbarPos = *EV_SECONDARY_TASKBAR_POS(lpSecondaryTaskbarLongPtr);
 				switch(nSecondaryTaskbarPos)
 				{
-				case 1: // Is taskbar on top of the screen
-				case 3: // Is taskbar on bottom of the screen
+				case ABE_TOP:
+				case ABE_BOTTOM:
 					cx += GetSystemMetrics(SM_CXICON);
 					break;
 				}
@@ -1195,8 +1195,8 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 	{
 		switch(nTaskbarPos)
 		{
-		case 0: // Is taskbar on left of the screen
-		case 2: // Is taskbar on right of the screen
+		case ABE_LEFT:
+		case ABE_RIGHT:
 			GetWindowRect(hTaskbarWnd, &rc);
 			if(rc.right - rc.left <= nInitialMinWidth)
 			{
@@ -1210,9 +1210,9 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 						bWasLocked = TRUE;
 					}
 
-					if(nTaskbarPos == 0) // Is taskbar on left of the screen
+					if(nTaskbarPos == ABE_LEFT)
 						rc.right = rc.left + nNewMinTaskbarWidth;
-					else // Is taskbar on right of the screen
+					else // if(nTaskbarPos == ABE_RIGHT)
 						rc.left = rc.right - nNewMinTaskbarWidth;
 
 					SendMessage(hTaskbarWnd, WM_SIZING, WMSZ_LEFT, (LPARAM)&rc);
@@ -1270,16 +1270,16 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 
 			switch(nSecondaryTaskbarPos)
 			{
-			case 0: // Is taskbar on left of the screen
-			case 2: // Is taskbar on right of the screen
+			case ABE_LEFT:
+			case ABE_RIGHT:
 				GetWindowRect(hSecondaryTaskbarWnd, &rc);
 				if(rc.right - rc.left <= nInitialMinWidth)
 				{
 					if(nNewMinSecondaryTaskbarWidth > 0 && nNewMinSecondaryTaskbarWidth < rc.right - rc.left)
 					{
-						if(nSecondaryTaskbarPos == 0) // Is taskbar on left of the screen
+						if(nSecondaryTaskbarPos == ABE_LEFT)
 							rc.right = rc.left + nNewMinSecondaryTaskbarWidth;
-						else // Is taskbar on right of the screen
+						else // if(nSecondaryTaskbarPos == ABE_RIGHT)
 							rc.left = rc.right - nNewMinSecondaryTaskbarWidth;
 
 						SendMessage(hSecondaryTaskbarWnd, WM_SIZING, WMSZ_LEFT, (LPARAM)&rc);
@@ -1487,8 +1487,8 @@ static LRESULT CALLBACK NewTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPAR
 		{
 			switch(*EV_TASKBAR_POS())
 			{
-			case 0: // Is taskbar on left of the screen
-			case 2: // Is taskbar on right of the screen
+			case ABE_LEFT:
+			case ABE_RIGHT:
 				if(*EV_TASKBAR_UNLOCKED_FLAG()) // Is taskbar unlocked?
 				{
 					BOOL *pboolAutoposFlag = EV_TASKBAR_AUTOPOS_FLAG(); // Is taskbar NOT getting manually positioned
@@ -1522,8 +1522,8 @@ static LRESULT CALLBACK NewTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPAR
 		{
 			switch(*EV_TASKBAR_POS())
 			{
-			case 0: // Is taskbar on left of the screen
-			case 2: // Is taskbar on right of the screen
+			case ABE_LEFT:
+			case ABE_RIGHT:
 				if((nWinVersion == WIN_VERSION_7 && nOptions[OPT_OTHER_NOSTARTBTN]) ||
 					((WINDOWPOS *)lParam)->cx < GetTaskbarMinWidth())
 				{
@@ -1533,6 +1533,7 @@ static LRESULT CALLBACK NewTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPAR
 				{
 					PSRemoveSingle(NULL, L"last_taskbar_width");
 				}
+				break;
 			}
 		}
 
@@ -1751,8 +1752,8 @@ static LRESULT CALLBACK NewMMTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 		{
 			switch(nTaskbarPos)
 			{
-			case 1: // Is taskbar on top of the screen
-			case 3: // Is taskbar on bottom of the screen
+			case ABE_TOP:
+			case ABE_BOTTOM:
 				if(GetWindowLongPtr(hWnd, GWL_EXSTYLE) & WS_EX_LAYOUTRTL)
 					rc.left -= GetSystemMetrics(SM_CXICON);
 				else
@@ -1782,13 +1783,13 @@ static LRESULT CALLBACK NewMMTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 
 				switch(nTaskbarPos)
 				{
-				case 0: // Is taskbar on left of the screen
-				case 2: // Is taskbar on right of the screen
+				case ABE_LEFT:
+				case ABE_RIGHT:
 					bInsideStartBtnArea = pt.y < nSpacing;
 					break;
 
-				case 1: // Is taskbar on top of the screen
-				case 3: // Is taskbar on bottom of the screen
+				case ABE_TOP:
+				case ABE_BOTTOM:
 					bInsideStartBtnArea = pt.x < nSpacing;
 					break;
 				}
@@ -2043,8 +2044,8 @@ static LRESULT CALLBACK NewMMTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 				{
 					switch(*EV_TASKBAR_POS())
 					{
-					case 1: // Is taskbar on top of the screen
-					case 3: // Is taskbar on bottom of the screen
+					case ABE_TOP:
+					case ABE_BOTTOM:
 						if(GetWindowLongPtr(hWnd, GWL_EXSTYLE) & WS_EX_LAYOUTRTL)
 							rc.left -= GetSystemMetrics(SM_CXICON);
 						else
@@ -2102,8 +2103,8 @@ static LRESULT CALLBACK NewMMTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 
 			switch(*EV_SECONDARY_TASKBAR_POS(lpSecondaryTaskbarLongPtr))
 			{
-			case 0: // Is taskbar on left of the screen
-			case 2: // Is taskbar on right of the screen
+			case ABE_LEFT:
+			case ABE_RIGHT:
 				if(((WINDOWPOS *)lParam)->cx < GetTaskbarMinWidth())
 				{
 					PSSetSingleInt(NULL, L"last_secondary_taskbar_width", ((WINDOWPOS *)lParam)->cx);
@@ -2112,6 +2113,7 @@ static LRESULT CALLBACK NewMMTaskbarProc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 				{
 					PSRemoveSingle(NULL, L"last_secondary_taskbar_width");
 				}
+				break;
 			}
 		}
 
@@ -2146,8 +2148,8 @@ static LRESULT CALLBACK NewTaskBandProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 
 			switch(nTaskbarPos)
 			{
-			case 1: // Is taskbar on top of the screen
-			case 3: // Is taskbar on bottom of the screen
+			case ABE_TOP:
+			case ABE_BOTTOM:
 				((WINDOWPOS *)lParam)->cx -= GetSystemMetrics(SM_CXICON);
 				if(((WINDOWPOS *)lParam)->cx < 0)
 					((WINDOWPOS *)lParam)->cx = 0;
@@ -2192,8 +2194,8 @@ static LRESULT CALLBACK NewTaskBandProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 				switch(nTaskbarPos)
 				{
 				// Horizontal
-				case 1: // Is taskbar on top of the screen
-				case 3: // Is taskbar on bottom of the screen
+				case ABE_TOP:
+				case ABE_BOTTOM:
 					if(nSpacing < ((WINDOWPOS *)lParam)->x)
 					{
 						((WINDOWPOS *)lParam)->cx += (((WINDOWPOS *)lParam)->x - nSpacing);
@@ -2202,8 +2204,8 @@ static LRESULT CALLBACK NewTaskBandProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 					break;
 
 				// Vertical
-				case 0:
-				case 2:
+				case ABE_LEFT:
+				case ABE_RIGHT:
 					if(nSpacing < ((WINDOWPOS *)lParam)->y)
 					{
 						((WINDOWPOS *)lParam)->cy += (((WINDOWPOS *)lParam)->y - nSpacing);
@@ -2246,15 +2248,15 @@ static LRESULT CALLBACK NewTaskBandProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 				switch(nTaskbarPos)
 				{
 				// Horizontal
-				case 1: // Is taskbar on top of the screen
-				case 3: // Is taskbar on bottom of the screen
+				case ABE_TOP:
+				case ABE_BOTTOM:
 					((WINDOWPOS *)lParam)->x += -(rcStartBtn.right - rcStartBtn.left) + nSpacing;
 					((WINDOWPOS *)lParam)->cx -= -(rcStartBtn.right - rcStartBtn.left) + nSpacing;
 					break;
 
 				// Vertical
-				case 0:
-				case 2:
+				case ABE_LEFT:
+				case ABE_RIGHT:
 					((WINDOWPOS *)lParam)->y += -(rcStartBtn.bottom - rcStartBtn.top) + nSpacing;
 					((WINDOWPOS *)lParam)->cy -= -(rcStartBtn.bottom - rcStartBtn.top) + nSpacing;
 					break;
@@ -2357,8 +2359,8 @@ static LRESULT CALLBACK NewTaskSwProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARA
 		{
 			switch(*EV_TASKBAR_POS())
 			{
-			case 1: // Is taskbar on top of the screen
-			case 3: // Is taskbar on bottom of the screen
+			case ABE_TOP:
+			case ABE_BOTTOM:
 				((WINDOWPOS *)lParam)->cx -= GetSystemMetrics(SM_CXICON);
 				if(((WINDOWPOS *)lParam)->cx < 0)
 					((WINDOWPOS *)lParam)->cx = 0;
@@ -2924,7 +2926,7 @@ static LRESULT CALLBACK NewTaskListProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPA
 
 					bMinimize = (GET_WHEEL_DELTA_WPARAM(wParam) < 0);
 
-					if(nTaskbarPos == 1) // Is taskbar on top of the screen
+					if(nTaskbarPos == ABE_TOP)
 						bMinimize = !bMinimize;
 
 					if(nOptionsEx[OPT_EX_SCROLL_REVERSE_MINIMIZE])
@@ -3159,7 +3161,7 @@ static LRESULT CALLBACK NewThumbnailProc(HWND hWnd, UINT uMsg, WPARAM wParam, LP
 
 				bMinimize = (GET_WHEEL_DELTA_WPARAM(wParam) < 0);
 
-				if(nTaskbarPos == 1) // Is taskbar on top of the screen
+				if(nTaskbarPos == ABE_TOP)
 					bMinimize = !bMinimize;
 
 				if(nOptionsEx[OPT_EX_SCROLL_REVERSE_MINIMIZE])
@@ -4374,15 +4376,15 @@ static BOOL WINAPI SetWindowPosHook(HWND hWnd, HWND hWndInsertAfter, int X, int 
 					switch(nTaskbarPos)
 					{
 					// Horizontal
-					case 1: // Is taskbar on top of the screen
-					case 3: // Is taskbar on bottom of the screen
+					case ABE_TOP:
+					case ABE_BOTTOM:
 						X -= rcStartBtn.right - rcStartBtn.left;
 						X += nSpacing;
 						break;
 
 					// Vertical
-					case 0:
-					case 2:
+					case ABE_LEFT:
+					case ABE_RIGHT:
 						Y -= rcStartBtn.bottom - rcStartBtn.top;
 						Y += nSpacing;
 						break;

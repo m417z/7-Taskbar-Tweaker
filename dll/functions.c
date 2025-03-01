@@ -2098,8 +2098,8 @@ int GetTaskbarMinWidth(void)
 
 		switch(*EV_TASKBAR_POS())
 		{
-		case 0: // Is taskbar on left of the screen
-		case 2: // Is taskbar on right of the screen
+		case ABE_LEFT:
+		case ABE_RIGHT:
 			nWidth += *EV_TASKBAR_W7_WIDTH_PADDING();
 			break;
 		}
@@ -2128,8 +2128,8 @@ int GetTaskbarMinHeight(void)
 
 		switch(*EV_TASKBAR_POS())
 		{
-		case 1: // Is taskbar on top of the screen
-		case 3: // Is taskbar on bottom of the screen
+		case ABE_TOP:
+		case ABE_BOTTOM:
 			nHeight += *EV_TASKBAR_W7_HEIGHT_PADDING();
 			break;
 		}
