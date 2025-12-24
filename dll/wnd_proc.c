@@ -1060,35 +1060,6 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 		}
 
 		SetWindowPos(hTaskSwWnd, NULL, 0, 0, cx, cy, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-
-		lpSecondaryTaskListLongPtr = SecondaryTaskListGetFirstLongPtr(&secondary_task_list_get);
-		while(lpSecondaryTaskListLongPtr)
-		{
-			LONG_PTR lpSecondaryTaskBandLongPtr = EV_MM_TASKLIST_SECONDARY_TASK_BAND_LONG_PTR_VALUE(lpSecondaryTaskListLongPtr);
-			LONG_PTR lpSecondaryTaskbarLongPtr = EV_SECONDARY_TASK_BAND_SECONDARY_TASKBAR_LONG_PTR_VALUE(lpSecondaryTaskBandLongPtr);
-
-			HWND hSecondaryTaskBandWnd = *EV_SECONDARY_TASK_BAND_HWND(lpSecondaryTaskBandLongPtr);
-
-			GetWindowRect(hSecondaryTaskBandWnd, &rc);
-			long cx = rc.right - rc.left;
-			long cy = rc.bottom - rc.top;
-
-			if(pNewOptions[OPT_OTHER_EXTRAEMPTY] == 0)
-			{
-				int nSecondaryTaskbarPos = *EV_SECONDARY_TASKBAR_POS(lpSecondaryTaskbarLongPtr);
-				switch(nSecondaryTaskbarPos)
-				{
-				case ABE_TOP:
-				case ABE_BOTTOM:
-					cx += GetSystemMetrics(SM_CXICON);
-					break;
-				}
-			}
-
-			SetWindowPos(hSecondaryTaskBandWnd, NULL, 0, 0, cx, cy, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-
-			lpSecondaryTaskListLongPtr = SecondaryTaskListGetNextLongPtr(&secondary_task_list_get);
-		}
 	}
 
 	if(nOldOptionsEx[OPT_EX_DISABLE_TASKBAR_TRANSPARENCY] != pNewOptionsEx[OPT_EX_DISABLE_TASKBAR_TRANSPARENCY])
@@ -1386,8 +1357,8 @@ static int SetOptions(int pNewOptions[OPTS_COUNT], int pNewOptionsEx[OPTS_EX_COU
 		}
 	}
 	else if(
-		(nOldOptions[OPT_OTHER_CLOCKSHOWSEC] == 1) != (pNewOptions[OPT_OTHER_CLOCKSHOWSEC] == 1) &&
-		nWinVersion >= WIN_VERSION_10_R1
+		(nOldOptions[OPT_OTHER_EXTRAEMPTY] == 1) != (pNewOptions[OPT_OTHER_EXTRAEMPTY] == 1) ||
+		((nOldOptions[OPT_OTHER_CLOCKSHOWSEC] == 1) != (pNewOptions[OPT_OTHER_CLOCKSHOWSEC] == 1) && nWinVersion >= WIN_VERSION_10_R1)
 	)
 	{
 		lpSecondaryTaskListLongPtr = SecondaryTaskListGetFirstLongPtr(&secondary_task_list_get);
